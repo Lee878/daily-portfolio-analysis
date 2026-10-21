@@ -1,6 +1,6 @@
 {
-  "version": "2.3.0",
-  "released_at": "2026-10-21T22:47:24+08:00",
-  "minimum_tests": 59,
+  "version": "2.4.0",
+  "released_at": "2026-10-21T23:43:53+08:00",
+  "minimum_tests": 62,
   "changelog": "CHANGELOG.md"
 }

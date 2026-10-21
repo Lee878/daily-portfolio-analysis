@@ -26,6 +26,7 @@ daily-portfolio-analysis v2 统一编排入口（唯一推荐出报告的通道�
 """
 import argparse
 import datetime as dt
+import os
 import re
 import subprocess
 import sys
@@ -429,6 +430,8 @@ def main():
         p.add_argument("--date", default=dt.date.today().isoformat())
         p.add_argument("--session", choices=["pre", "noon", "post", "quick"], default="pre")
         p.add_argument("--allow-degraded", action="store_true")
+        p.add_argument("--brief", default="",
+                       help="本次只做简列的关注标的，逗号分隔（临时降级；缺省=全部深度分析）")
         if name == "fetch":
             p.add_argument("--no-network", action="store_true")
         if name == "report":
@@ -436,6 +439,8 @@ def main():
             p.add_argument("--data", help="紧凑卡片数据JSON，走通用渲染器 render_report.py")
             p.add_argument("--html", help="产物 HTML 路径（默认按命名规则）")
     args = ap.parse_args()
+    if getattr(args, "brief", ""):
+        os.environ["DAILY_BRIEF_TICKERS"] = args.brief
     if args.cmd == "fetch":
         sys.exit(do_fetch(args))
     if args.cmd == "gate":

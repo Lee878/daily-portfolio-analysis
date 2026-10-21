@@ -543,9 +543,9 @@ class TestWatchlist(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         (self.root / "evidence").mkdir(parents=True)
-        # LITE 为本组测试的深度关注标的
-        (self.root / "watchlist_depth.json").write_text(
-            json.dumps({"pre": [], "noon": [], "post": ["LITE"]}),
+        # v2.4.0 语义反转：brief 里是"要降级"的名单；留空 = 全部深度分析
+        (self.root / "watchlist_brief.json").write_text(
+            json.dumps({"pre": [], "noon": [], "post": []}),
             encoding="utf-8")
         self.lite = gc.parse_watchlist(WATCHLIST_MD)[0]
 

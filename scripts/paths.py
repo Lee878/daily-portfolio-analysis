@@ -86,6 +86,34 @@ def brief_path() -> Path:
     return p if p else config_dir() / "watchlist_brief.json"
 
 
+def brief_override() -> set[str] | None:
+    """单次运行的降级覆盖（--brief A,B）。返回 None 表示"没设置"。"""
+    raw = (os.environ.get("DAILY_BRIEF_TICKERS") or "").strip()
+    if not raw:
+        return None
+    return {t.strip() for t in raw.split(",") if t.strip()}
+
+
+def brief_tickers(session: str, extra_dirs=()) -> set[str]:
+    """本时段需要**降级为简列**的关注标的；缺省空集 = 全部深度分析。
+
+    探测顺序：单次覆盖 > extra_dirs（测试夹具/便携）> config/watchlist_brief.json。
+    """
+    override = brief_override()
+    if override is not None:
+        return override
+    for base in list(extra_dirs) + [config_dir()]:
+        p = Path(base) / "watchlist_brief.json"
+        if not p.exists():
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+            return {str(t) for t in d.get(session, [])}
+        except Exception:
+            continue
+    return set()
+
+
 def resolve_report_root(explicit: str | Path | None = None,
                         holdings: Path | None = None) -> Path:
     """报告根目录。

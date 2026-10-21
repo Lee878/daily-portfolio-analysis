@@ -89,6 +89,22 @@ def _sync_pyproject_version(version: str) -> None:
         print(f"[release][warn] 同步 pyproject.toml 失败（不影响发布）：{e}")
 
 
+def _sync_skill_version(version: str) -> None:
+    """把 SKILL.md frontmatter 的 version 同步为同一版本（skill 规范要求）。"""
+    f = ENG / "SKILL.md"
+    if not f.exists():
+        return
+    try:
+        text = f.read_text(encoding="utf-8")
+        new, n = re.subn(r"(?m)^version://s*//S+//s*$", f"version: {version}",
+                         text, count=1)
+        if n:
+            f.write_text(new, encoding="utf-8")
+            print(f"[release] SKILL.md version → {version}")
+    except Exception as e:
+        print(f"[release][warn] 同步 SKILL.md 版本失败（不影响发布）：{e}")
+
+
 def bump(level):
     cur = read_version() or "0.0.0"
     m = re.match(r"^(\d+)\.(\d+)\.(\d+)", cur)
@@ -105,6 +121,7 @@ def bump(level):
     version = f"{a}.{b}.{c}"
     write_version(version)
     _sync_pyproject_version(version)
+    _sync_skill_version(version)
     write_manifest(version)
     print(f"[release] bump {cur} → {version}；VERSION / pyproject / MANIFEST 已更新。")
     print("[release] 记得补 CHANGELOG.md，然后跑 release.py test。")

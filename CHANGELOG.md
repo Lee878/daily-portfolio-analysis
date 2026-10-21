@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.4.0 · 迁到本地 + 规范化 + 报告样式重做（2026-10-21）
+
+### 目录与工程化
+- 按 skill 规范重组：`SKILL.md` + `scripts/` + `references/` + `assets/` + `tests/`；仓库根 = skill 根。
+- 新增 `scripts/paths.py`：全项目路径唯一来源（CLI > ENV > 默认），删掉 `/home/user/Doubao` 回退。
+- `release.py` 重写：删除豆包 RT/`sync`（本地单副本不需要，且会让 doctor 永远不绿）；
+  MANIFEST 键名改新布局；`bump` 同步 VERSION / pyproject / SKILL.md 三处版本；doctor 增加语法检查与本地数据就绪检查。
+- 数据与代码分离：`config/`、`data/`、`.archive/` 不入库；新增 README / LICENSE / .gitignore / .gitattributes。
+- 删除 `redeploy.py`（豆包 cron 蓝绿重建机制在本地不适用）。
+
+### 报告样式（手机优先）
+- **红涨绿跌**：涨/多方红、跌/空方绿；旧 token `g/r/tg/tr` 保留为别名，历史 data.json 零迁移。
+- 正文 13.3px → 15.5px（桌面 16px）、行高 1.75、正文提亮；字体栈补苹方/鸿蒙/雅黑。
+- 卡片重排：头部（名称/涨跌▲▼/动作徽章）→ 结论条 → 多空双栏 → 风控/操作常显 → 折叠细节。
+- 新增常驻顶栏（Regime + 覆盖率 + 今日动作）、锚点目录、每卡证据清单（ID+级别+来源+链接）。
+- 市场位置/共识/证伪/证据默认折叠；桌面 ≥900px 用纯 CSS 自动全展开；表格窄屏自动堆叠。
+- `<meta name="color-scheme" content="dark">`，避免安卓浏览器强制反色。
+
+### 关注库
+- **语义反转**：`watchlist_depth.json`（深度白名单）→ `watchlist_brief.json`（降级名单，缺省=**全部深度分析**）。
+  盘后 7 只美股关注标的从"简列"恢复为深度分析。旧文件存在时忽略并提示迁移。
+- 新增单次降级开关 `--brief TICKER,TICKER`，不改文件、不影响下一轮。
+
+### 修复
+- 渲染器把整张卡压成一行时，报告门会误判"多空同源"——改为按行输出（实测复现后修复）。
+- 动作标签排除否定词（"不加仓"不再被判为"加"）。
+- 测试导入路径改 `scripts/`；新增 brief 语义 4 条回归用例（共 67 项）。
+
 ## v2.3.0 · 迁移到 Windows/WorkBuddy 的阻塞性缺陷修复（2026-10-21）
 
 代码审查发现：架构本身成立（双门禁 + 指纹 + 数据驱动渲染），但**换平台即失效**——

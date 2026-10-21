@@ -680,8 +680,8 @@ def instrument_for(holding):
     return "STOCK"
 
 
-def build_evidence(holding, session, fetcher, date_str, depth=None):
-    depth = depth or frozenset()
+def build_evidence(holding, session, fetcher, date_str, brief=None):
+    brief = brief or frozenset()
     market = holding["market"]
     instrument = instrument_for(holding)
     # 场外基金、场内 ETF、杠杆/反向 ETP、现金管理一律走基金（净值/跟踪标的）口径
@@ -690,7 +690,7 @@ def build_evidence(holding, session, fetcher, date_str, depth=None):
     fund_like = market == "基金" or instrument in (
         "ETF", "LEVERAGED_ETP", "FUND", "ADVISORY", "CASH_MGMT")
     # 简列关注：watchlist 但不在深度名单，只取现价、不要求多空新闻/产业链
-    brief_wl = bool(holding.get("watchlist")) and holding["ticker"] not in depth
+    brief_wl = bool(holding.get("watchlist")) and holding["ticker"] in brief
     if fund_like:
         planned = {k: list(v) for k, v in PLANNED_FUND.items()}
     else:
@@ -783,7 +783,7 @@ def build_evidence(holding, session, fetcher, date_str, depth=None):
     elif brief_wl:
         evidence["gaps"].append(
             "简列关注：仅取现价用于关注库总览表，不做深度多空新闻/产业链取证；"
-            "到价会在总览表标红并提示，需深度分析时把代码加入 watchlist_depth.json")
+            "到价会在总览表标红并提示，要恢复深度分析，把它从 watchlist_brief.json 对应时段数组里删掉")
     else:
         news_min = NEWS_MIN_NOON if session == "noon" else NEWS_MIN_FULL
         evidence["gaps"].append(
@@ -856,18 +856,13 @@ def ensure_utf8_stdout():
             pass
 
 
-def load_depth(base_dir, session):
-    """读取关注库"深度名单"（v2.4.0：config/ 优先，兼容测试夹具目录）。"""
-    for base in (Path(base_dir), paths.config_dir()):
-        p = Path(base) / "watchlist_depth.json"
-        if not p.exists():
-            continue
-        try:
-            d = json.loads(p.read_text(encoding="utf-8"))
-            return frozenset(str(t) for t in d.get(session, []))
-        except Exception:
-            continue
-    return frozenset()
+def load_brief(base_dir, session):
+    """读取"降级名单"：写进去的关注标的只做简列，其余**默认全部深度分析**。
+
+    v2.4.0 语义反转（旧版是"深度白名单"，未列出=简列，配错就把关注票静默降级了）。
+    """
+    return paths.brief_tickers(session, extra_dirs=(base_dir,))
+
 
 
 def main():
@@ -927,10 +922,10 @@ def main():
           f"标的数={len(holdings)} network={not args.no_network}")
 
     fetcher = MarketDataFetcher(network=not args.no_network)
-    depth = load_depth(holdings_path.parent, args.session)
+    brief = load_brief(holdings_path.parent, args.session)
     written = []
     for h in holdings:
-        ev = build_evidence(h, args.session, fetcher, args.date, depth=depth)
+        ev = build_evidence(h, args.session, fetcher, args.date, brief=brief)
         out = ev_dir / f"{args.date}_{args.session}_{safe_name(h['ticker'])}.json"
         out.write_text(json.dumps(ev, ensure_ascii=False, indent=2), encoding="utf-8")
         verified = sum(1 for p in ev["data_points"] if p["status"] == "verified")
