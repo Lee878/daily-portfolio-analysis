@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import gate_check as gc  # noqa: E402
 import run_daily as rd   # noqa: E402

@@ -29,6 +29,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import paths  # noqa: E402
+
 DIM_WEIGHTS_STOCK = {"fundamental": 0.25, "technical": 0.20, "flow": 0.20,
                      "news": 0.20, "chain": 0.15}
 DIM_WEIGHTS_FUND = {"fundamental": 0.40, "technical": 0.30,
@@ -483,8 +486,8 @@ def depth_set(report_root, session):
     未列出的关注标的按 brief（仅在关注库总览表列示现价/目标价）处理。
     真实布局 depth 在 report_root 的上级；兼容测试夹具把 depth 放在 report_root 内。
     """
-    for base in (Path(report_root).parent, Path(report_root)):
-        p = base / "watchlist_depth.json"
+    for base in (Path(report_root), Path(report_root).parent, paths.config_dir()):
+        p = Path(base) / "watchlist_depth.json"
         if not p.exists():
             continue
         try:
@@ -1085,15 +1088,9 @@ def main():
     args = ap.parse_args()
 
     report_root = Path(args.report_root)
-    holdings_path = Path(args.holdings) if args.holdings else report_root.parent / "holdings.md"
-    if not holdings_path.exists():
-        for cand in [report_root / "holdings.md",
-                     Path("/home/user/Doubao/chats/38441678557998594/holdings.md")]:
-            if cand.exists():
-                holdings_path = cand
-                break
-    if not holdings_path.exists():
-        print(f"[error] 找不到 holdings.md（试过 {holdings_path}），用 --holdings 指定")
+    holdings_path = paths.resolve_holdings(args.holdings)
+    if holdings_path is None:
+        print("[error] 找不到 holdings.md（config/holdings.md 或 --holdings 指定）")
         sys.exit(2)
     md_text = holdings_path.read_text(encoding="utf-8")
     holdings = parse_holdings(md_text)
@@ -1105,9 +1102,9 @@ def main():
     # 关注库：仅纳入"接下来要开盘市场"对应标的（pre→A股/港股，post→美股），
     # noon/quick 不纳入；与持仓合并去重（持仓在前）。
     wl_markets = {"pre": {"A股", "港股"}, "post": {"美股"}}.get(args.session, set())
-    wl_path = holdings_path.parent / "watchlist.md"
+    wl_path = paths.watchlist_path(holdings_path)
     watchlist = []
-    if wl_markets and wl_path.exists():
+    if wl_markets and wl_path:
         watchlist = [w for w in parse_watchlist(wl_path.read_text(encoding="utf-8"))
                      if w["market"] in wl_markets]
     merged, mseen = [], set()

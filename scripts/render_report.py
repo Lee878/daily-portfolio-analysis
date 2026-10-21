@@ -21,8 +21,10 @@ import re
 import sys
 from pathlib import Path
 
-ENG = Path(__file__).resolve().parent.parent
-ASSETS = ENG / "assets"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import paths  # noqa: E402
+
+ASSETS = paths.ASSETS
 
 # 允许正文里出现的少量排版标签；其余一律转义（v2.2.3）
 _ALLOWED = ("b", "strong", "em", "i", "u")

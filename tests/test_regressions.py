@@ -21,7 +21,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import fetch_data as fd  # noqa: E402
 import gate_check as gc  # noqa: E402
@@ -187,16 +187,31 @@ class TestR6AllowDegraded(unittest.TestCase):
 
 
 class TestR7PathDefaults(unittest.TestCase):
-    def test_report_root_follows_holdings(self):
+    def _holdings(self, d):
+        h = Path(d) / "holdings.md"
+        h.write_text("# 持仓\n## A股持仓\n| 名称 | 代码 | 数量 | 成本 | 现价 |\n"
+                     "|---|---|---|---|---|\n| a | 601899 | 1 | 1 | 1 |\n",
+                     encoding="utf-8")
+        return h
+
+    def test_report_root_prefers_portable_layout(self):
+        """便携模式：holdings 同级已有 daily-reports/ 时用它（拷走整个目录即可用）。"""
         with tempfile.TemporaryDirectory() as d:
-            h = Path(d) / "holdings.md"
-            h.write_text("# 持仓\n## A股持仓\n| 名称 | 代码 | 数量 | 成本 | 现价 |\n"
-                         "|---|---|---|---|---|\n| a | 601899 | 1 | 1 | 1 |\n",
-                         encoding="utf-8")
-            args = argparse.Namespace(holdings=str(h), report_root=None)
-            root, hh = rd.resolve_paths(args)
+            h = self._holdings(d)
+            (Path(d) / "daily-reports").mkdir()
+            root, hh = rd.resolve_paths(argparse.Namespace(holdings=str(h),
+                                                           report_root=None))
             self.assertEqual(hh, h)
             self.assertEqual(root, Path(d) / "daily-reports")
+
+    def test_report_root_defaults_to_repo_data_dir(self):
+        """标准布局：没有同级 daily-reports 时落在 <仓库>/data/daily-reports。"""
+        import paths as paths_mod
+        with tempfile.TemporaryDirectory() as d:
+            h = self._holdings(d)
+            root, _ = rd.resolve_paths(argparse.Namespace(holdings=str(h),
+                                                          report_root=None))
+            self.assertEqual(root, paths_mod.report_root())
 
 
 class TestR8Units(unittest.TestCase):

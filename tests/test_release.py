@@ -11,17 +11,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import release as r          # noqa: E402
 import run_daily as rd      # noqa: E402
 
 KEY_FILES = [
-    "SKILL.md", "BOOTSTRAP.md",
+    "SKILL.md", "README.md",
     "scripts/run_daily.py", "scripts/gate_check.py", "scripts/fetch_data.py",
-    "scripts/release.py", "scripts/redeploy.py",
-    "assets/cron-templates/pre.md", "assets/cron-templates/noon.md",
-    "assets/cron-templates/post.md",
+    "scripts/release.py", "scripts/paths.py",
+    "assets/workbuddy-prompts/pre.md", "assets/workbuddy-prompts/noon.md",
+    "assets/workbuddy-prompts/post.md",
 ]
 
 

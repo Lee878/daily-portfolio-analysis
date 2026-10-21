@@ -34,6 +34,9 @@ import sys
 import traceback
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import paths  # noqa: E402
+
 SESSION_LABEL = {"pre": "盘前", "noon": "午间", "post": "盘后", "quick": "快速诊断"}
 
 # ---------------------------------------------------------------------------
@@ -854,13 +857,17 @@ def ensure_utf8_stdout():
 
 
 def load_depth(base_dir, session):
-    """读取 watchlist_depth.json，返回本 session 深度关注 ticker 集合。"""
-    p = Path(base_dir) / "watchlist_depth.json"
-    try:
-        d = json.loads(p.read_text(encoding="utf-8"))
-        return frozenset(str(t) for t in d.get(session, []))
-    except Exception:
-        return frozenset()
+    """读取关注库"深度名单"（v2.4.0：config/ 优先，兼容测试夹具目录）。"""
+    for base in (Path(base_dir), paths.config_dir()):
+        p = Path(base) / "watchlist_depth.json"
+        if not p.exists():
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+            return frozenset(str(t) for t in d.get(session, []))
+        except Exception:
+            continue
+    return frozenset()
 
 
 def main():
@@ -874,23 +881,9 @@ def main():
     ap.add_argument("--no-network", action="store_true", help="不调用 akshare，只生成取证骨架")
     args = ap.parse_args()
 
-    holdings_path = None
-    candidates = []
-    if args.holdings:
-        candidates.append(Path(args.holdings))
-    env = os.environ.get("DAILY_HOLDINGS")
-    if env:
-        candidates.append(Path(env))
-    candidates += [
-        Path("holdings.md"),
-        Path("/home/user/Doubao/chats/38441678557998594/holdings.md"),
-    ]
-    for c in candidates:
-        if c.exists():
-            holdings_path = c
-            break
+    holdings_path = paths.resolve_holdings(args.holdings)
     if holdings_path is None:
-        print("[error] 找不到 holdings.md，请用 --holdings 指定路径")
+        print("[error] 找不到 holdings.md（config/holdings.md），请用 --holdings 指定路径")
         sys.exit(2)
 
     md_text = holdings_path.read_text(encoding="utf-8")
@@ -902,9 +895,9 @@ def main():
     # 关注库：仅纳入"接下来要开盘市场"对应标的（pre→A股/港股，post→美股），
     # noon/quick 不自动纳入；与持仓合并去重（持仓在前）。
     wl_markets = {"pre": {"A股", "港股"}, "post": {"美股"}}.get(args.session, set())
-    wl_path = holdings_path.parent / "watchlist.md"
+    wl_path = paths.watchlist_path(holdings_path)
     watchlist = []
-    if wl_markets and wl_path.exists():
+    if wl_markets and wl_path:
         watchlist = [w for w in parse_watchlist(wl_path.read_text(encoding="utf-8"))
                      if w["market"] in wl_markets]
     merged, mseen = [], set()
@@ -925,8 +918,7 @@ def main():
         holdings = [h for h in holdings
                     if h["ticker"].upper() in wanted or h["name"] in wanted]
 
-    report_root = Path(args.report_root) if args.report_root \
-        else holdings_path.parent / "daily-reports"
+    report_root = paths.resolve_report_root(args.report_root, holdings_path)
     ev_dir = report_root / "evidence"
     ev_dir.mkdir(parents=True, exist_ok=True)
 

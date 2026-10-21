@@ -34,6 +34,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 import gate_check as gate  # noqa: E402
+import paths  # noqa: E402
 
 SESSION_CN = {"pre": "盘前报告", "noon": "盘中总结", "post": "盘后总结",
               "quick": "快速诊断"}
@@ -42,50 +43,23 @@ GATE_PY = SCRIPT_DIR / "gate_check.py"
 
 EXIT_PASS, EXIT_ENV, EXIT_EV_FAIL, EXIT_EV_DEGRADED, EXIT_RP_FAIL = 0, 2, 10, 11, 12
 
-ENG_DIR = SCRIPT_DIR.parent
-
-
 def engine_version_info():
-    """返回 (version, MANIFEST 短指纹)；文件缺失时对应为空串。"""
-    import hashlib
-    import json
-    version = ""
-    vf = ENG_DIR / "VERSION.json"
-    if vf.exists():
-        try:
-            version = json.loads(vf.read_text(encoding="utf-8")).get("version", "")
-        except Exception:
-            version = ""
-    build = ""
-    mf = ENG_DIR / "MANIFEST.json"
-    if mf.exists():
-        build = hashlib.sha256(mf.read_bytes()).hexdigest()[:8]
-    return version, build
+    """返回 (version, MANIFEST 短指纹)；统一走 paths（v2.4.0）。"""
+    return paths.version_info()
 
 
 def resolve_paths(args):
-    """解析 holdings 与报告根目录。
+    """解析 holdings 与报告根目录（v2.4.0：统一走 paths，删除豆包云路径回退）。
 
-    v2.2.3：--holdings / --report-root 默认改为 None，按 holdings 同级推导
-    （与 SKILL「报告根目录默认 holdings 同级 daily-reports/」一致）。旧版把
-    豆包路径写成 argparse 默认值，只传 --holdings 时会去 /home/user/... 找证据，
-    再报"缺少证据文件"，把路径问题伪装成取证问题。
+    优先级：显式参数 > 环境变量 > config/ > 当前目录。
+    报告根：显式 > 环境变量 > 便携模式（holdings 同级有 daily-reports/）> data/daily-reports/。
     """
-    if args.holdings:
-        holdings = Path(args.holdings)
-    else:
-        holdings = Path("holdings.md")
-    if not holdings.exists():
-        for cand in [Path("/home/user/Doubao/chats/38441678557998594/holdings.md")]:
-            if cand.exists():
-                holdings = cand
-                print(f"[run_daily][warn] 未找到指定 holdings，回退到历史路径：{cand}")
-                break
-    if not holdings.exists():
-        print(f"[run_daily][error] 找不到 holdings.md（试过 {args.holdings or 'holdings.md'}）")
+    holdings = paths.resolve_holdings(getattr(args, "holdings", None))
+    if holdings is None:
+        print("[run_daily][error] 找不到 holdings.md"
+              "（试过 config/holdings.md；可用 --holdings 指定）")
         sys.exit(EXIT_ENV)
-    report_root = Path(args.report_root) if args.report_root \
-        else holdings.parent / "daily-reports"
+    report_root = paths.resolve_report_root(getattr(args, "report_root", None), holdings)
     return report_root, holdings
 
 
@@ -105,9 +79,9 @@ def load_targets(holdings: Path, session: str):
     """
     hs = load_holdings(holdings)
     wl_markets = {"pre": {"A股", "港股"}, "post": {"美股"}}.get(session, set())
-    wl_path = holdings.parent / "watchlist.md"
+    wl_path = paths.watchlist_path(holdings)
     watchlist = []
-    if wl_markets and wl_path.exists():
+    if wl_markets and wl_path:
         watchlist = [w for w
                      in gate.parse_watchlist(wl_path.read_text(encoding="utf-8"))
                      if w["market"] in wl_markets]
