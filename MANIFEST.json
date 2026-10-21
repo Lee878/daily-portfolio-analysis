@@ -1,6 +1,6 @@
 {
   "version": "2.4.0",
-  "released_at": "2026-10-21T23:50:21+08:00",
+  "released_at": "2026-10-21T23:59:44+08:00",
   "minimum_tests": 62,
   "file_count": 38,
   "files": {
@@ -97,8 +97,8 @@
       "bytes": 5806
     },
     "scripts/fetch_data.py": {
-      "sha256": "9d10dec37a5ccfdb2f4bf51476cf741922d94473b2b371318c2e1b77dbc95f78",
-      "bytes": 40531
+      "sha256": "2b70a3ede41630a1640a49ee1b2de4c4d50c77e9dcfea1edacdddd096d7a110b",
+      "bytes": 40973
     },
     "scripts/gate_check.py": {
       "sha256": "16f4c483c69fe35c67f165d6133a5e21810f5b09b1b5457b40ef799a089f88d1",

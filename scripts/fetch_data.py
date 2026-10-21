@@ -930,9 +930,14 @@ def main():
     written = []
     for h in holdings:
         ev = build_evidence(h, args.session, fetcher, args.date, brief=brief)
+        verified = sum(1 for p in ev["data_points"] if p["status"] == "verified")
+        # 一个点都没取到 + 有报错 → 把原因写进 gaps，避免被误读成"标的不存在"
+        if verified == 0 and fetcher.errors:
+            ev["gaps"].insert(0, "脚本取数失败（" + fetcher.errors[0][:140]
+                              + "）——多为网络/代理问题（东财接口常被代理拦截），"
+                                "需用搜索/公开接口补证，或关闭代理后重跑")
         out = ev_dir / f"{args.date}_{args.session}_{safe_name(h['ticker'])}.json"
         out.write_text(json.dumps(ev, ensure_ascii=False, indent=2), encoding="utf-8")
-        verified = sum(1 for p in ev["data_points"] if p["status"] == "verified")
         total = len(ev["data_points"])
         written.append(out)
         print(f"  - {h['name']:<12} {h['ticker']:<10} "

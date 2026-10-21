@@ -106,7 +106,8 @@ python scripts/release.py doctor
 | 报告门报"多空同源" | 多方/空方用了同一批 ID | 给双方各补独立来源 |
 | 覆盖率突然变低 | 分母是机械值，不读文件里的 `planned` | 补数据点；不要改 `planned` 刷分 |
 | `doctor` 报漂移 | 改了受管文件没重算指纹 | `release.py manifest`（发版用 `bump`） |
-| 取数全部 missing | akshare 未装或网络不通 | 装依赖，或 `--no-network` 出骨架后由 agent 补证 |
+| 取数全部 missing | akshare 未装 | `python -m pip install akshare yfinance`，或 `--no-network` 出骨架后由 agent 补证 |
+| **A股/港股取数全 missing，美股正常** | 系统代理拦了东方财富接口（`ProxyError` / `RemoteDisconnected`） | 关代理，或给东财加白名单：`set NO_PROXY=eastmoney.com,push2.eastmoney.com,push2his.eastmoney.com,sina.com.cn,qq.com`；证据 `gaps` 里会写明具体报错 |
 | 报告里出现"多方：多方：" | data.json 的 bull 字段自己写了前缀 | 只写论点，渲染器会加"多方：" |
 
 ### 4.3 报告被删了
