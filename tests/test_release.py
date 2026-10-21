@@ -5,6 +5,7 @@
 运行：cd scripts && python -m unittest tests.test_release -v
 """
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -20,12 +21,25 @@ KEY_FILES = [
     "SKILL.md", "README.md",
     "scripts/run_daily.py", "scripts/gate_check.py", "scripts/fetch_data.py",
     "scripts/release.py", "scripts/paths.py",
+    "scripts/derive_indicators.py",
+    "references/mcp-data-source.md",
     "assets/workbuddy-prompts/pre.md", "assets/workbuddy-prompts/noon.md",
     "assets/workbuddy-prompts/post.md",
 ]
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_skill_version_matches_engine(self):
+        """SKILL.md 的 version 必须与 VERSION.json 一致。
+
+        bump 靠正则改 frontmatter，正则写错（例如 \\s 被误写成 //s）会静默
+        失效——版本号看着升了，skill 元数据还停在旧值。这条用例兜住它。
+        """
+        text = (r.ENG / "SKILL.md").read_text(encoding="utf-8")
+        m = re.search(r"(?m)^version:\s*(\S+)\s*$", text)
+        self.assertIsNotNone(m, "SKILL.md frontmatter 缺 version 字段")
+        self.assertEqual(m.group(1), r.read_version())
+
     def test_version_and_manifest(self):
         # 不写死版本号：断言三处版本一致（否则每次 bump 都要改测试）
         v = r.read_version()

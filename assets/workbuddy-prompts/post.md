@@ -27,7 +27,12 @@
 
 2. **取证 + 证据门**
    `python "{{REPO_DIR}}/scripts/run_daily.py" fetch --session post --date <当日>`
-   - 退出码 **10** = 证据门 FAIL：按 problems 与 `evidence/*.json` 的 gaps，用本环境可用的行情/财报/资金/搜索工具补证（akshare/yfinance 脚本、公开接口、内置搜索均可），**原地写回同一份证据 JSON**（禁编造、禁占位、禁首页 URL，取不到就写进 gaps），再跑 `gate` 直到 0。
+   - 退出码 **10** = 证据门 FAIL：按 problems 与 `evidence/*.json` 的 gaps 补证，**原地写回同一份证据 JSON**（禁编造、禁占位、禁首页 URL，取不到就写进 gaps），再跑 `gate` 直到 0。补证按下面的优先级走：
+     - **行情 / 估值 / 财务 / 资金 → NeoData MCP 优先**。它走平台侧通道，不受本机代理影响（本机代理常拦东方财富，akshare 会全线失败）。动手前先 Read `{{REPO_DIR}}/references/mcp-data-source.md`（字段映射 + 9 个坑），按市场批量调用，单次 ≤10 个代码，不要逐只调。
+     - `atr14` / `range_52w_pct` / `volume_ratio` 三个字段 MCP 不提供，**必须**跑 `python "{{REPO_DIR}}/scripts/derive_indicators.py" --mcp <kline.json> --ticker <代码>` 算（52 周区间要分段取 K 线再用多个 `--mcp` 合并）。样本不足就写 `missing` + `gaps`，**不许目测估计、不许拿近似值充数**。
+     - **MCP 覆盖不到**：北向资金（`north_south_flow`）、美股期权/机构（`put_call_or_inst`）、基金全部字段 → 走搜索，取不到进 gaps。
+     - **新闻与产业链不走 MCP**（MCP 只给结构化行情），照旧用搜索工具，`url` 必须可访问的具体文章页。
+     - MCP 取到的点写 `source: "neodata:<工具名>"`、`fetched_by: "agent"`、`evidence_level: "P3"`。
    - 退出码 **11** = 覆盖率 <50%：只有客观数据源全挂时才加 `--allow-degraded`，且报告必须挂"数据不足"横幅、只给定性判断。
 
 3. **四层分析 + 填 data.json**

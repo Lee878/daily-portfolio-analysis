@@ -31,6 +31,48 @@ python scripts/run_daily.py report --session pre --date 2026-10-22 \
 
 ---
 
+## 1.5 手机端怎么收报告
+
+三条路，按推荐顺序：
+
+### 路径一：WorkBuddy App / 微信小程序（推荐，零配置）
+
+App 的通知权限里包含「任务完成提醒、自动化通知」，定时任务跑完会在手机上弹出通知，
+点开能在产物里看报告。微信里搜「WorkBuddy」小程序，效果类似，不用装 App。
+
+**三个前提，缺一不可**：
+
+1. 手机与电脑**登录同一个微信/QQ 账号**（不同账号无法连到这台电脑）；
+2. 电脑端打开「连接电脑」开关，且**电脑开机联网**（定时任务跑在本机）；
+3. App 里允许通知权限。
+
+⚠️ 电脑关机 = 任务不跑 = 收不到。这是本机部署的固有性质，云端沙箱没有你的
+Python 环境和 `config/holdings.md`，替代不了。
+
+### 路径二：邮件附件（可离线看，需先开通邮箱）
+
+`config/delivery.json`：
+
+```json
+{ "enabled": true, "to": "你的邮箱@example.com", "subject_prefix": "[持仓报告]" }
+```
+
+**前提**：WorkBuddy 的 Agent 邮箱要先开通——入口在「更多 → 我的邮箱」。
+未开通时发送会失败并提示 `not_bound`，此时定时任务不受影响，只是不推送。
+
+正文是纯文本摘要（Regime / 覆盖率 / 今日动作 / 一句话风险），附件是 HTML，
+所以在微信里转发邮件也能直接读。
+
+### 路径三：手动转微信（兜底）
+
+个人微信**没有开放推送接口**，任何"自动发到微信"都要走企业微信机器人之类的中转。
+最省事的做法：报告出来后自己把 HTML 拖进「文件传输助手」。
+
+> 注：把报告发布成公网链接再推链接，技术上可行，但你的持仓金额、成本价会暴露在
+> 公网地址上，不建议这么做。
+
+---
+
 ## 2. 怎么改标准
 
 引擎只有一份，就是本仓库。改动分三类：
@@ -109,6 +151,12 @@ python scripts/release.py doctor
 | 取数全部 missing | akshare 未装 | `python -m pip install akshare yfinance`，或 `--no-network` 出骨架后由 agent 补证 |
 | **A股/港股取数全 missing，美股正常** | 系统代理拦了东方财富接口（`ProxyError` / `RemoteDisconnected`） | 关代理，或给东财加白名单：`set NO_PROXY=eastmoney.com,push2.eastmoney.com,push2his.eastmoney.com,sina.com.cn,qq.com`；证据 `gaps` 里会写明具体报错 |
 | 报告里出现"多方：多方：" | data.json 的 bull 字段自己写了前缀 | 只写论点，渲染器会加"多方：" |
+| MCP 返回只有当天一行 | 没传 `start_date`（默认就是当天） | 显式给 `start_date` + `end_date` |
+| MCP 返回里有"省略中间历史行情"行 | 长区间被服务端截断 | 分段取（每段约 20 个交易日），用多个 `--mcp` 合并 |
+| A 股财务指标缺 ROE | 传了 `2026-Q2` 单季报 | 改累计报告期 `2026-H1` / `2026-9M` / `2026-FY` |
+| 港股财务查不到 | 用了 Q2/Q3/Q4 | 港股只有 `Q1/H2/9M/FY` |
+| 美股估值查不到 | `valuation` 不支持美股 | 改用 `financial_indicators`（含美股估值字段） |
+| 邮件推送报 `not_bound` | Agent 邮箱未开通 | 「更多 → 我的邮箱」开通后再发；不影响本地交付 |
 
 ### 4.3 报告被删了
 

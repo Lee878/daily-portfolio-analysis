@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.5.0 · 接入 NeoData MCP 取数（2026-10-22）
+
+### 背景
+本机代理拦截东方财富（`ProxyError` / `RemoteDisconnected`），A 股/港股取数为 0，
+美股正常。MCP 走平台侧通道，不受本机网络策略影响——实测三市场全通。
+
+### 新增
+- **NeoData MCP 作为补证首选取数通道**：`quote_and_kline` / `technical` / `valuation` /
+  `financial_indicators` / `fund_flow`，按市场批量调用（单次 ≤10 个代码）。
+  SKILL.md Step 2 与三份 prompt 均已改为「MCP 优先，akshare/搜索兜底」。
+- **scripts/derive_indicators.py**：从日 K 线派生门禁要求但 MCP 不提供的三个字段
+  （`atr14` / `range_52w_pct` / `volume_ratio`），含内建自检。这三个量决定止损位，
+  不许心算——报告门只校验"有没有值"，算错了没人拦。
+- **references/mcp-data-source.md**：字段映射表、覆盖缺口、9 个实测坑、单位换算、调用节奏。
+- tests/test_derive.py：15 条用例（占位行/省略标记行剔除、倒序翻转、多段合并、
+  样本不足返回 None 而非 0）。
+
+### 覆盖缺口（已写入文档，绝不编造）
+北向资金 `north_south_flow`、美股 `put_call_or_inst`、基金全部字段——MCP 均不覆盖，
+走搜索，取不到写 `gaps`。
+
+### 文档
+- docs/operations.md 新增「手机端怎么收报告」：App/小程序通知（含三个前提）、
+  邮件附件（需先开通 Agent 邮箱）、微信手动兜底；4.2 补 7 条 MCP 相关故障。
+- 明确记录：Agent 邮箱当前未开通，邮件推送会返回 `not_bound`。
+- README 说明双通道取数；测试基线 67 → 82。
+
 ## v2.4.0 · 迁到本地 + 规范化 + 报告样式重做（2026-10-21）
 
 ### 目录与工程化

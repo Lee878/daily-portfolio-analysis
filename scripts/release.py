@@ -30,7 +30,7 @@ ENG = paths.ROOT
 VERSION_F = ENG / "VERSION.json"
 MANIFEST_F = ENG / "MANIFEST.json"
 PYPROJECT_F = ENG / "pyproject.toml"
-MIN_TESTS = 62
+MIN_TESTS = 82
 
 
 def managed_files():
@@ -96,7 +96,7 @@ def _sync_skill_version(version: str) -> None:
         return
     try:
         text = f.read_text(encoding="utf-8")
-        new, n = re.subn(r"(?m)^version://s*//S+//s*$", f"version: {version}",
+        new, n = re.subn(r"(?m)^version:\s*\S+\s*$", f"version: {version}",
                          text, count=1)
         if n:
             f.write_text(new, encoding="utf-8")

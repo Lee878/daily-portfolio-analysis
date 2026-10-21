@@ -2,7 +2,7 @@
 name: daily-portfolio-analysis
 description: "深度持仓分析引擎。读取持仓档案，对每只持仓标的执行四层多角色辩论分析（5视角数据采集→多空强制辩论→三视角风控评估→基金经理终审），输出盘前/午间/盘后三时段深度报告。证据门禁：取证不达标禁止辩论、论点无证据ID禁止交付。当用户要求做每日持仓分析、盘前报告、午间总结、盘后总结、持仓操作建议、持仓诊断时使用。支持A股、港股、美股、基金多账户组合。"
 license: MIT
-version: 2.4.0
+version: 2.5.0
 metadata:
   requires-python: ">=3.10"
   entrypoint: "scripts/run_daily.py"
@@ -33,7 +33,9 @@ metadata:
 7. **市场 Regime 前置**：先判 S0-S6 大环境，再做个股（见 market-models.md）。
 8. **用户偏好硬约束**：必含四维度（市场位置、环比同比、预期差、进场判断）。期权/VIX/IV/PCR 板块已按用户要求彻底移除，报告不再写期权策略方向。
 9. **诚实缺口**：所有 missing 数据点必须写入证据文件 `gaps`；gaps 不是扣分，隐瞒缺口才是阻断项。
-10. **脚本优先取数**：行情/估值/技术指标由脚本批量拉取（akshare/yfinance，不可用时生成待补骨架），agent 专注新闻、财报、产业链、宏观这些需要判断力的取证。
+10. **取数两级优先**：脚本先出骨架（akshare/yfinance 直连；网络受限时全 missing），
+   补证首选 NeoData MCP（平台侧通道，不受本机代理影响），派生指标用脚本算。
+   agent 的判断力应花在新闻、财报、产业链、宏观上，而不是手工搬运行情数字。
 
 ## 强制工作流（七步法）
 
@@ -48,7 +50,8 @@ metadata:
 ```bash
 # 阶段一：取证骨架 + 首检证据门（FAIL→退出码10，并打印待补清单）
 python scripts/run_daily.py fetch --session <pre|noon|post> --date <日期> --holdings <holdings.md>
-#   ……agent 用本环境可用的行情/搜索工具补证（akshare/yfinance 脚本、公开接口、内置搜索），原地写回 evidence/*.json……
+#   ……agent 用 NeoData MCP 批量补行情/估值/财务/资金，派生指标跑 derive_indicators.py，
+#     新闻走搜索工具；全部原地写回 evidence/*.json（字段映射见 references/mcp-data-source.md）……
 python scripts/run_daily.py gate  --session <pre|noon|post> --date <日期> --holdings <holdings.md>  # 补证后复检，PASS(0) 才能继续
 # 阶段二：填好紧凑 data.json 后：强制证据门复检 → 通用渲染器生成 HTML → 报告门
 python scripts/run_daily.py report --session <pre|noon|post> --date <日期> \
@@ -82,6 +85,7 @@ python scripts/fetch_data.py --holdings <holdings.md> --session <pre|noon|post>
   生成 `daily-reports/evidence/<日期>_<时段>_<代码>.json`；拿不到的点显式标 `missing` 并列入 gaps。
 - 同时生成 `*_macro.json` 宏观骨架（quick 时段除外）。
 - akshare 未安装或网络不通时，脚本生成全 missing 骨架——**这不是失败，是给 agent 的明确待补清单**。
+  本机代理拦截东方财富是常见原因（脚本会把报错写进 `gaps` 首条），此时改用 NeoData MCP 补证。
 
 #### 已清仓/卖出标的识别（机械规则，脚本强制，不靠自觉）
 
@@ -102,13 +106,26 @@ python scripts/fetch_data.py --holdings <holdings.md> --session <pre|noon|post>
 
 ### Step 2 agent 补证（写回同一份 JSON，不要新建文件）
 
-用工具把脚本拿不到的数据补进证据文件，字段规范见 [evidence-schema.md](references/evidence-schema.md)：
+用工具把脚本拿不到的数据补进证据文件，字段规范见 [evidence-schema.md](references/evidence-schema.md)。
 
+**取数首选 NeoData MCP**——它走平台侧通道，不受本机代理影响（本机代理常拦东方财富，
+导致 akshare 全线失败）。字段映射、覆盖缺口、9 个实测坑见
+[mcp-data-source.md](references/mcp-data-source.md)，动手前必须先读。
+
+- **行情/估值/财务/资金**：MCP 批量取（单次 ≤10 个代码，按市场批量而非逐只调用）。
+  `atr14`、`range_52w_pct`、`volume_ratio` 三个字段 MCP 不提供，**必须**用
+  `python scripts/derive_indicators.py --mcp <kline.json> --ticker <代码>` 从 K 线算，
+  不许目测、不许估；样本不足时写 `missing` + `gaps`，不许拿近似值充数。
+- **MCP 明确覆盖不到**：北向资金 `north_south_flow`、美股 `put_call_or_inst`、基金全部字段——
+  走搜索或其他公开渠道，取不到就写进 `gaps`。
 - **新闻**：用本环境可用的搜索工具，每只标的完整版 ≥2 条（≥1 条 P1/P2，必须带可访问 URL），午间 ≥1 条。
-- **财报/估值缺口**：用行情/财报工具（或 akshare/yfinance 脚本）补 ROE、营收/利润增速等；单位统一：市值=亿元、资金流=万元。
+  MCP 只给结构化行情，**不能替代新闻**。
+- **财报/估值缺口**：MCP 的 `valuation` / `financial_indicators` 优先（注意 A 股要用 `H1`/`9M`/`FY`
+  累计报告期，单季报不返回 ROE）；仍缺再用 akshare/yfinance 或搜索。单位统一：市值=亿元、资金流=万元。
 - **产业链**：填 `chain_notes`（生命周期、SEI、中军龙头，必须带来源）。
 - **宏观**：补 `*_macro.json`（指数期货/美元/美债/油价/黄金等）；不再要求期权/VIX/IV/PCR 证据。
 - 补证后把对应数据点 `status` 改为 `verified`、补全 `source`/`source_url`/`evidence_level`；
+  MCP 取到的点写 `source: "neodata:<工具名>"`、`fetched_by: "agent"`、`evidence_level: "P3"`；
   确实查不到的保持 `missing` 但要确保已在 `gaps`。
 
 ### Step 3 证据门（辩论前必须 PASS）

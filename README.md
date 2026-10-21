@@ -31,6 +31,10 @@
 
 需要 Python 3.10+（只用标准库；`akshare` / `yfinance` 可选，装了能自动取行情）。
 
+**取数两条通道**：脚本用 `akshare`/`yfinance` 直连；本机网络受限时（企业代理常拦东方财富），
+补证阶段改用 **NeoData MCP**（平台侧通道，不受本机代理影响）。字段映射与已知坑见
+[references/mcp-data-source.md](references/mcp-data-source.md)。
+
 ```bash
 # 1) 初始化本地配置（生成 config/ 与 data/，从 examples/ 复制模板）
 python scripts/setup_local.py
@@ -38,7 +42,7 @@ python scripts/setup_local.py
 # 2) 填自己的持仓与关注库
 #    编辑 config/holdings.md、config/watchlist.md（格式见 examples/）
 
-# 3) 自检：语法 + 版本指纹 + 62 项回归测试
+# 3) 自检：语法 + 版本指纹 + 82 项回归测试
 python scripts/release.py doctor
 
 # 4) 取证（网络可用时去掉 --no-network）

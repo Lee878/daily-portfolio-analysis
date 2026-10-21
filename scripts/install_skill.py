@@ -45,7 +45,10 @@ def _mirror(src: Path, dst: Path) -> None:
     if sys.platform == "win32":
         cmd = ["robocopy", str(src), str(dst), "/MIR", "/NFL", "/NDL", "/NJH", "/NJS", "/NP",
                "/XD", *EXCLUDE_DIRS, "/XF", "*.pyc"]
-        rc = subprocess.run(cmd, capture_output=True, text=True).returncode
+        # 只要退出码，不要回读输出：robocopy 输出是系统 ANSI 编码（中文 Windows 为 GBK），
+        # text=True 会按 UTF-8 解码，遇到中文字节直接抛 UnicodeDecodeError
+        rc = subprocess.run(cmd, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL).returncode
         # robocopy: 0=无变化 1=有复制 2=多余文件 3=1+2 … <8 都是成功
         if rc >= 8:
             raise RuntimeError(f"robocopy 失败（退出码 {rc}）")
