@@ -1,8 +1,8 @@
 {
   "version": "2.4.0",
-  "released_at": "2026-10-21T23:48:29+08:00",
+  "released_at": "2026-10-21T23:50:21+08:00",
   "minimum_tests": 62,
-  "file_count": 36,
+  "file_count": 38,
   "files": {
     "CHANGELOG.md": {
       "sha256": "893f469a2f34d5537ee5932a7b4e5389af4b787beb2ec09a24702ff5a88d3827",
@@ -37,16 +37,16 @@
       "bytes": 9232
     },
     "assets/workbuddy-prompts/noon.md": {
-      "sha256": "70d1b5a46874a499bd0ed3c89cb13c8d1443eae7ec1785fd9172dc3c79a50bfb",
-      "bytes": 2967
+      "sha256": "5665f2a020bcb2fecff37f1a51ca94620ed71278132cdca171bb55251bb10a27",
+      "bytes": 4410
     },
     "assets/workbuddy-prompts/post.md": {
-      "sha256": "e2f6663a2056a3917fe9fd62c08a9da0d5733ab1c094c7bb8a518f34c0264d51",
-      "bytes": 3454
+      "sha256": "c3d89d35fdb91c481f55e624bb01c3bd3bf2cb9606e434c55305f92ac495a44d",
+      "bytes": 4428
     },
     "assets/workbuddy-prompts/pre.md": {
-      "sha256": "114d84eca4669b81c886a9e12257bd5cc23ed115cf33042ac796c573dd02f538",
-      "bytes": 3640
+      "sha256": "b91d5decf2589710b430e41755a3d48edf4cfa5a45fb71d203b1dbb951268e89",
+      "bytes": 4567
     },
     "pyproject.toml": {
       "sha256": "5aa91f3cf44da8dce721c3f2204e9706a5e484ca7da05e855805d697bb312574",
@@ -104,6 +104,10 @@
       "sha256": "16f4c483c69fe35c67f165d6133a5e21810f5b09b1b5457b40ef799a089f88d1",
       "bytes": 53165
     },
+    "scripts/install_skill.py": {
+      "sha256": "dedf149c8805eafd9e8743b5e0498a18d5cbb39108d10cec8edbef7513189ccc",
+      "bytes": 4870
+    },
     "scripts/paths.py": {
       "sha256": "0b49a9e57450dee4bd6da85937a99d7b32b55529ad7e848d20186c9c7def70b4",
       "bytes": 5797
@@ -127,6 +131,10 @@
     "scripts/run_daily.py": {
       "sha256": "12d3671c766b1edc78af2f88a87c640f55c8d9c664f25967dee6b32514bbac2b",
       "bytes": 20911
+    },
+    "scripts/setup_local.py": {
+      "sha256": "f7e80f85492502abc2ef5a94fed1a0ddc1f0cd2101f39162633de68a4d841ba3",
+      "bytes": 3471
     },
     "tests/__init__.py": {
       "sha256": "735469839c842bc3fbc34792d87ecca2fb190d80bc5c631024bb850a07b5bbfb",
