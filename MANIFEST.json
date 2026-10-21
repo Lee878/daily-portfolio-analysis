@@ -1,6 +1,6 @@
 {
   "version": "2.3.0",
-  "released_at": "2026-10-21T23:32:36+08:00",
+  "released_at": "2026-10-21T23:37:18+08:00",
   "minimum_tests": 62,
   "file_count": 35,
   "files": {
@@ -21,8 +21,8 @@
       "bytes": 25712
     },
     "assets/data-schema.md": {
-      "sha256": "9798baa3225a8f1c7d4f536f2fc8c51656dc6877c657a236f609b66f70e816a5",
-      "bytes": 3335
+      "sha256": "f8bd70bf654005c9e112719101b1732934494e0c58a511f943f1fc0f9f702d21",
+      "bytes": 5138
     },
     "assets/disclaimer.html": {
       "sha256": "817c47360546faf122d7a586630fcbb7b8669028e87363dab44cff50d206b90f",
@@ -33,8 +33,8 @@
       "bytes": 1921
     },
     "assets/style.css": {
-      "sha256": "09aae1d5373d3b6084d77a7e23fc6a11527861fa2a4048de95c06e814a090243",
-      "bytes": 2445
+      "sha256": "3941016ccb7dd164c55c43f6886c446512d5f7b2ff49c682f07f46f8aba7c6d4",
+      "bytes": 9232
     },
     "assets/workbuddy-prompts/noon.md": {
       "sha256": "70d1b5a46874a499bd0ed3c89cb13c8d1443eae7ec1785fd9172dc3c79a50bfb",
@@ -81,8 +81,8 @@
       "bytes": 10502
     },
     "references/report-html-template.md": {
-      "sha256": "16b859be9c72ce4810d99fcff027cf6fa2bcb7697abc0ad4ff37a0c0c853ef3f",
-      "bytes": 6123
+      "sha256": "a5614e56e53bb0018e401c4ddb57d27e0a010863c6f1eec3fe571d65fc1eeea7",
+      "bytes": 5489
     },
     "references/risk-compliance.md": {
       "sha256": "8a4bddf3437b13bbb69fa84d95ffd7248220ed1d99a2cb2db0ee32a6822465fd",
@@ -113,16 +113,16 @@
       "bytes": 9029
     },
     "scripts/render_report.py": {
-      "sha256": "99101965b2c8cf8073bf31f1fc5eacf2d06b5b26a6cc7520a67e6613682c1377",
-      "bytes": 12502
+      "sha256": "f1a223c3142ab7c5ac8303cd345c16f7ee98db6dc7e33d42d081f90a7c75ce35",
+      "bytes": 19897
     },
     "scripts/reuse_evidence.py": {
       "sha256": "1209566ec86f6660f2de066e7e84a0ea148073507e6efc25a1d7c90e64ad549f",
       "bytes": 5742
     },
     "scripts/run_daily.py": {
-      "sha256": "9b865b108371ab426b57e8c2e268ef892941003554618b5ad9731c3597b167dc",
-      "bytes": 20571
+      "sha256": "72ffcd45dd3c02c211f75e9a307f1abfb4f7f72153b7a5073bc1868cd57321ad",
+      "bytes": 20634
     },
     "tests/__init__.py": {
       "sha256": "735469839c842bc3fbc34792d87ecca2fb190d80bc5c631024bb850a07b5bbfb",

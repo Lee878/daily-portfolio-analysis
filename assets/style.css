@@ -1,29 +1,213 @@
+/* 每日持仓分析报告样式 v2.4.0
+   设计目标：手机优先、始终深色、结论优先、红涨绿跌（A 股习惯）。
+   - 正文 15.5px（桌面 16px），行高 1.75
+   - 涨/多方 = 红（--up），跌/空方 = 绿（--down）
+   - 手机：卡片默认折叠细节；桌面（>=900px）自动全展开（纯 CSS）
+   - 不引入任何外部资源 */
+
+:root{
+  --bg:#0d1117; --card:#161b22; --card2:#1b212a; --line:#21262d;
+  --fg:#e6edf3; --fg2:#a9b6c3; --fg3:#7d8590;
+  --up:#f85149;      /* 涨 / 多方 */
+  --down:#3fb950;    /* 跌 / 空方 */
+  --blue:#58a6ff; --warn:#d29922;
+  --pad:12px; --r:12px;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#0d1117;color:#c9d1d9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6;padding:14px}
-.wrap{max-width:760px;margin:0 auto}
-h1{font-size:21px;margin-bottom:4px}
-h2{font-size:17px;margin:24px 0 10px;padding-left:9px;border-left:4px solid #58a6ff}
-h3{font-size:15.5px;margin-bottom:7px}
-.sub{color:#8b949e;font-size:12.5px;margin-bottom:14px}
-.card{background:#161b22;border:1px solid #21262d;border-radius:11px;padding:14px;margin-bottom:13px}
-.card p{font-size:13.3px;margin:6px 0}
-.g{color:#3fb950}.r{color:#f85149}.b{color:#58a6ff}.y{color:#d29922}.mut{color:#8b949e}
-.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
-.tg{background:rgba(63,185,80,.15);color:#3fb950}.tr{background:rgba(248,81,73,.15);color:#f85149}.ty{background:rgba(210,153,34,.15);color:#d29922}
-.tb{background:rgba(88,166,255,.15);color:#58a6ff}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;margin-bottom:14px}
-.stat{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:11px;text-align:center}
-.stat .v{font-size:17px;font-weight:700}.stat .k{font-size:11px;color:#8b949e;margin-top:3px}
-.banner{background:linear-gradient(135deg,#1f6feb22,#1f6feb08);border:1px solid #1f6feb55;border-radius:11px;padding:13px;margin-bottom:13px;font-size:13px}
-.regime{background:#161b22;border:1px solid #21262d;border-radius:11px;padding:13px;margin-bottom:13px;font-size:12.8px}
-table{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
-th,td{border:1px solid #21262d;padding:6px 7px;text-align:left}th{background:#161b22;color:#8b949e}
-.warn{background:rgba(210,153,34,.1);border:1px solid #d2992255;border-radius:10px;padding:12px;font-size:12.8px;margin:12px 0}
-.warn p{margin:6px 0}
-.buy{background:rgba(63,185,80,.1);border:1px solid #3fb95066;border-radius:10px;padding:12px;font-size:12.8px;margin:12px 0}
-.buy p{margin:6px 0}
-.sector{border-left:4px solid #58a6ff}
-.sector.bear{border-left-color:#f85149}.sector.bull{border-left-color:#3fb950}.sector.mid{border-left-color:#d29922}
-details{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:11px;margin-top:12px;font-size:12.5px}
-details a{color:#58a6ff;word-break:break-all}
-.foot{color:#8b949e;font-size:11.5px;margin-top:18px;border-top:1px solid #21262d;padding-top:12px}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{
+  background:var(--bg);color:var(--fg);
+  font:15.5px/1.75 -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',
+       'HarmonyOS Sans','Noto Sans CJK SC','Microsoft YaHei',sans-serif;
+  padding:var(--pad) var(--pad) 44px;
+}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:22px;line-height:1.4;margin:6px 0 4px}
+h2{font-size:17px;margin:26px 0 10px;padding-left:10px;border-left:4px solid var(--blue)}
+h3{font-size:16.5px;line-height:1.45}
+.sub{color:var(--fg2);font-size:13px}
+.mut{color:var(--fg2)}
+
+/* ---------- 常驻顶栏：滑到哪都能看到结论 ---------- */
+.topbar{
+  position:sticky;top:0;z-index:9;
+  margin:calc(var(--pad) * -1) calc(var(--pad) * -1) 12px;
+  padding:8px var(--pad) 9px;
+  background:rgba(13,17,23,.95);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.tb-row{display:flex;gap:10px;align-items:baseline;font-size:12.5px;color:var(--fg2)}
+.tb-regime{color:var(--fg);font-weight:600}
+.tb-cov{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tb-actions{
+  font-size:12.5px;color:var(--fg2);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* ---------- 横幅 / 统计 / Regime ---------- */
+.banner{
+  background:linear-gradient(135deg,rgba(88,166,255,.14),rgba(88,166,255,.04));
+  border:1px solid rgba(88,166,255,.35);border-radius:var(--r);
+  padding:12px 14px;margin-bottom:12px;font-size:13.5px;
+}
+.banner b{font-size:15px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:8px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.stat .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .k{font-size:11.5px;color:var(--fg2);margin-top:2px}
+.regime{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+        padding:12px 14px;margin-bottom:14px;font-size:14px}
+
+/* ---------- 锚点索引 ---------- */
+.toc{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch}
+.toc a{
+  flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:8px 13px;color:var(--fg);text-decoration:none;font-size:13px;
+  min-height:38px;display:flex;align-items:center;
+}
+.toc a:active{background:var(--card2)}
+
+/* ---------- 卡片 ---------- */
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:14px;margin-bottom:12px;scroll-margin-top:70px;
+}
+.chead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.chead h3{flex:1 1 auto;min-width:0}
+.chg{font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
+.act{
+  font-size:12px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);
+  color:var(--fg2);white-space:nowrap;
+}
+.act-add{color:var(--up);border-color:rgba(248,81,73,.5);background:rgba(248,81,73,.1)}
+.act-cut{color:var(--down);border-color:rgba(63,185,80,.5);background:rgba(63,185,80,.1)}
+.act-hold{color:var(--fg)}
+.act-watch{color:var(--warn);border-color:rgba(210,153,34,.45);background:rgba(210,153,34,.08)}
+
+/* 结论条：一进卡片先看这个 */
+.concl{
+  font-size:15.5px;line-height:1.8;
+  background:rgba(88,166,255,.07);border-left:3px solid var(--blue);
+  padding:9px 11px;border-radius:8px;margin:6px 0 10px;
+}
+
+/* 多空：手机上下堆叠（多方在上），桌面左右并排 */
+.bb{display:grid;grid-template-columns:1fr;gap:8px;margin:8px 0}
+.side{padding:9px 11px;border-radius:9px;font-size:14.5px;line-height:1.75}
+.side.bull{background:rgba(248,81,73,.07);border-left:3px solid var(--up)}
+.side.bear{background:rgba(63,185,80,.07);border-left:3px solid var(--down)}
+.side b{font-weight:700}
+
+/* 风控 / 操作：保持常显（手机上也别藏） */
+.riskline,.opline{font-size:14.5px;margin:6px 0}
+.actv{color:var(--blue);font-weight:600}
+
+/* ---------- 折叠 ---------- */
+details.fold{
+  background:var(--card2);border:1px solid var(--line);border-radius:10px;
+  margin:7px 0;padding:0 11px;
+}
+details.fold>summary{
+  list-style:none;cursor:pointer;min-height:44px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:13.5px;color:var(--fg2);
+}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"展开";font-size:12px;color:var(--fg3)}
+details.fold[open]>summary::after{content:"收起"}
+details.fold .fold-body{padding:2px 0 11px;font-size:14.5px}
+details.fold .fold-body p{margin:5px 0}
+
+/* 证据清单（替代手机上看不见的 hover） */
+.evlist{list-style:none;font-size:12.5px;color:var(--fg2)}
+.evlist li{margin:6px 0;word-break:break-all;line-height:1.6}
+.evlist a{color:var(--blue)}
+
+/* 正文段落 */
+.card p{font-size:14.5px;line-height:1.75;margin:5px 0}
+
+/* ---------- 证据徽标 ---------- */
+.rb,.b{
+  display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:11px;line-height:1.35;color:var(--fg2);
+  background:rgba(139,148,158,.1);border:1px solid rgba(139,148,158,.28);
+  border-radius:4px;padding:1px 5px;margin:0 1px;vertical-align:baseline;
+  white-space:nowrap;
+}
+.rb.p1,.rb.p2,.b.p1,.b.p2{color:#cdd9e5;border-color:rgba(169,182,195,.45);background:rgba(169,182,195,.14)}
+.rb.p4,.b.p4{color:var(--warn);border:1px dashed rgba(210,153,34,.55);background:rgba(210,153,34,.08)}
+
+/* ---------- 表格 ---------- */
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:8px 0}
+th,td{border:1px solid var(--line);padding:8px 9px;text-align:left;vertical-align:top}
+th{background:var(--card2);color:var(--fg2);font-weight:600}
+
+/* ---------- 特殊块 ---------- */
+.warn,.buy{border-radius:var(--r);padding:12px 14px;margin:12px 0;font-size:14px}
+.warn{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.4)}
+.warn p,.buy p{margin:5px 0}
+.buy{background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.4)}
+.sector{border-left:4px solid var(--blue)}
+.sector.bear{border-left-color:var(--down)}
+.sector.bull{border-left-color:var(--up)}
+.sector.mid{border-left-color:var(--warn)}
+
+/* ---------- 来源 / 页脚 ---------- */
+details.src{
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:11px;margin-top:14px;font-size:13px;
+}
+details.src summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+details.src a{color:var(--blue);word-break:break-all}
+.foot{color:var(--fg3);font-size:12px;margin-top:18px;border-top:1px solid var(--line);
+      padding-top:12px;line-height:1.85}
+
+/* ---------- 颜色工具（旧 token 保留为等价别名） ---------- */
+.up{color:var(--up)}.down{color:var(--down)}
+.g{color:var(--up)}.r{color:var(--down)}      /* 旧 token：g=涨、r=跌 */
+.y{color:var(--warn)}
+.b{color:var(--fg2)}                            /* .b 仅作为徽标样式，不要再当文字色用 */
+.tag{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;
+     margin-left:6px;vertical-align:middle}
+.tagup,.tg{background:rgba(248,81,73,.14);color:var(--up)}
+.tagdown,.tr{background:rgba(63,185,80,.14);color:var(--down)}
+.ty{background:rgba(210,153,34,.14);color:var(--warn)}
+.tb{background:rgba(88,166,255,.14);color:var(--blue)}
+
+/* ---------- 桌面 ---------- */
+@media (min-width:768px){
+  :root{--pad:18px}
+  body{font-size:16px;padding:var(--pad) var(--pad) 56px}
+  .wrap{max-width:900px}
+  .bb{grid-template-columns:1fr 1fr}
+  h1{font-size:24px}
+}
+
+/* 桌面自动展开全部细节（纯 CSS，不需要 JS） */
+@media (min-width:900px){
+  details.fold:not([open])>.fold-body{display:block}
+  details.fold>summary{display:none}
+  details.fold{padding:0 11px 6px}
+  details.fold:not([open]){border-style:solid}
+}
+
+/* ---------- 手机表格堆叠（<600px） ---------- */
+@media (max-width:599px){
+  table,tbody,tr,td{display:block;width:100%}
+  thead{display:none}
+  tr{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;padding:3px 0;background:var(--card2)}
+  td{border:0;padding:6px 10px}
+  td::before{content:attr(data-label);display:block;color:var(--fg3);font-size:11.5px}
+  td:empty{display:none}
+}
+
+/* ---------- 打印 ---------- */
+@media print{
+  body{background:#fff;color:#111;padding:0}
+  .topbar,.toc{display:none}
+  .card,.regime,.banner,.stat,details.fold,details.src{background:#fff;border-color:#ccc}
+  details.fold>summary{display:none}
+  .concl,.side{background:#f7f7f7}
+  a{color:#0645ad}
+}

@@ -338,7 +338,8 @@ def do_report(args):
             [sys.executable, str(SCRIPT_DIR / "render_report.py"),
              "--data", str(data_path), "--out", str(out_html),
              "--date", args.date, "--session", args.session,
-             "--recon-out", str(recon_out)],
+             "--recon-out", str(recon_out),
+             "--evidence-dir", str(report_root / "evidence")],
             cwd=str(SCRIPT_DIR)).returncode
         if rc != 0 or not out_html.exists():
             print("[run_daily][error] 渲染器失败，未生成报告。")
