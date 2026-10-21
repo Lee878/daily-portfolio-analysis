@@ -8,7 +8,7 @@ daily-portfolio-analysis v2 统一编排入口（唯一推荐出报告的通道�
 
   1) python run_daily.py fetch  --session pre --date 2026-09-21 --holdings <md>
        跑 fetch_data.py 生成证据骨架，再跑证据门；FAIL 会打印待补清单并以码 10 退出。
-  2) （agent 用 seed_finance_lookup/general_search 补证，原地写回 evidence/*.json）
+  2) （agent 补证：行情/财务/资金走 NeoData MCP，公告/新闻走搜索，原地写回 evidence/*.json）
   3) python run_daily.py gate   --session pre --date 2026-09-21 --holdings <md>
        补证后只复检证据门（不重跑 fetch_data，保护已补数据）；PASS(码0) 才能继续。
   4) （agent 基于模板写当天 cards 与 builder）
@@ -146,20 +146,27 @@ def do_gate(args):
               "若确无数据，需显式 --allow-degraded 并在报告挂'数据不足'横幅。")
         return EXIT_EV_DEGRADED
     print("[run_daily] 证据门 FAIL：请按上方 problems 与各 evidence/*.json 的 gaps "
-          "补证（seed_finance_lookup/general_search，原地写回），然后重跑 gate。")
+          "补证（行情/财务/资金走 NeoData MCP，公告/新闻走搜索；原地写回），然后重跑 gate。")
     return EXIT_EV_FAIL
 
 
-def _inject_signature(html: Path, date: str, session: str, coverage: float):
+def _inject_signature(html: Path, date: str, session: str, coverage: float,
+                      status: str = "PASS", reason: str = ""):
+    """写入门禁签名。status=DEGRADED 表示「有缺口但仍交付」（PRD FR-07）。
+
+    退出码不因签名变化而放宽：门禁没过就仍然非 0，监控照样能抓。
+    """
     text = html.read_text(encoding="utf-8")
     if 'name="daily-gate"' in text:
         text = re.sub(r'<meta name="daily-gate"[^>]*>', "", text)
     stamp = dt.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S%z")
     version, build = engine_version_info()
     ver = f'engine={version} build={build} ' if version else ""
-    sig = (f'<meta name="daily-gate" content="PASS date={date} session={session} '
-           f'evidence=PASS report=PASS coverage={round(coverage*100,1)}% '
-           f'{ver}at={stamp}">')
+    gate = "PASS" if status == "PASS" else "FAIL"
+    why = f'reason={reason} ' if reason else ""
+    sig = (f'<meta name="daily-gate" content="{status} date={date} session={session} '
+           f'evidence={gate} report={gate} coverage={round(coverage*100,1)}% '
+           f'{why}{ver}at={stamp}">')
     if "</title>" in text:
         text = text.replace("</title>", "</title>\n" + sig, 1)
     elif re.search(r"<html[^>]*>", text):
@@ -169,16 +176,17 @@ def _inject_signature(html: Path, date: str, session: str, coverage: float):
     html.write_text(text, encoding="utf-8")
 
 
-def _inject_version_footer(html: Path, coverage: float):
+def _inject_version_footer(html: Path, coverage: float, status: str = "PASS"):
     """在页脚注入可见版本条：用户打开报告即知用的是哪一版引擎/构建。"""
     text = html.read_text(encoding="utf-8")
     text = re.sub(r'<footer id="daily-version-footer">.*?</footer>', "", text, flags=re.S)
     version, build = engine_version_info()
+    gate_txt = "双门禁 PASS" if status == "PASS" else "报告门未过·降级交付"
     footer = (
         '<footer id="daily-version-footer" style="margin:18px 0 6px;padding-top:12px;'
         'border-top:1px solid #21262d;text-align:center;font-size:11px;color:#7d8590;'
         'line-height:1.7;font-family:ui-monospace,Menlo,Consolas,monospace;">'
-        f'引擎 v{version} · 构建 {build} · 双门禁 PASS · 覆盖率 {round(coverage*100,1)}%<br>'
+        f'引擎 v{version} · 构建 {build} · {gate_txt} · 覆盖率 {round(coverage*100,1)}%<br>'
         '本报告由确定性脚本门禁产出，不构成投资建议，决策与后果由用户自行承担。'
         '</footer>')
     if "</body>" in text:
@@ -186,6 +194,41 @@ def _inject_version_footer(html: Path, coverage: float):
     else:
         text += footer
     html.write_text(text, encoding="utf-8")
+
+
+def _apply_degrade(html: Path, problems, coverage: float) -> int:
+    """报告门未过时插入「数据不全」横幅（PRD FR-07 / FR-08）。
+
+    与旧行为的分界：旧版直接 unlink，用户当天什么都拿不到；新版保留真实内容，
+    把缺口摆在首屏第一屏，且退出码仍非 0——既有信息又有告警。
+    """
+    import html as _html
+    text = html.read_text(encoding="utf-8")
+    # 重跑 report 时先清掉旧横幅（用哨兵界定范围，避免非贪婪误删后续区块）
+    text = re.sub(r'<div id="degrade-banner".*?<!--/degrade-->', "", text, flags=re.S)
+    shown = list(problems)[:8]
+    items = "".join(f"<li>{_html.escape(str(p))}</li>" for p in shown)
+    rest = len(problems) - len(shown)
+    if rest > 0:
+        items += f"<li>…另有 {rest} 项</li>"
+    banner = (
+        '<div id="degrade-banner" style="margin:14px 0 0;padding:12px 14px;'
+        'border:1px solid #f85149;border-left-width:5px;border-radius:6px;'
+        'background:#2d1214;color:#ffdcd7;font-size:13.5px;line-height:1.6">'
+        '<div style="font-weight:700;font-size:15px;color:#ff7b72">'
+        '⚠ 数据不全 · 本报告未通过报告门</div>'
+        f'<div style="margin-top:4px;color:#d0a9a4">覆盖率 {round(coverage * 100, 1)}%'
+        f' · {len(problems)} 项问题 · 已按降级交付</div>'
+        f'<ul style="margin:8px 0 0 18px;padding:0">{items}</ul>'
+        '<div style="margin-top:8px;color:#d0a9a4">涉及缺口的数据点已在证据清单中标注；'
+        '结论仅作参考，不构成投资建议。</div>'
+        '</div><!--/degrade-->')
+    if re.search(r"<body[^>]*>", text):
+        text = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + banner, text, count=1)
+    else:
+        text = banner + text
+    html.write_text(text, encoding="utf-8")
+    return len(shown)
 
 
 # 徽标统一中性灰，不使用绿/蓝涨跌色（避免与"多方/涨=绿、空方/跌=红"语义混淆）；
@@ -313,12 +356,17 @@ def do_report(args):
     ev = gate.check_evidence(report_root, args.date, args.session, hs,
                              args.allow_degraded)
     gate.render(ev)
+    # v2.6.0（PRD D-03 / FR-07）：证据门不过**不再阻断出报告**。
+    # 缺口本身就是要给用户看的信息；拦住等于让他当天什么都拿不到。
+    # 证据门的状态照实传下去，最终签名为 DEGRADED，退出码仍非 0。
+    ev_status = "PASS"
     if ev["exit_code"] == gate.FAIL:
-        print("[run_daily][阻断] 证据门未过，不允许生成报告。先补证并重跑 gate。")
-        return EXIT_EV_FAIL
-    if ev["exit_code"] == gate.DEGRADED and not args.allow_degraded:
-        print("[run_daily][阻断] 证据门降级，需 --allow-degraded 并挂数据不足横幅。")
-        return EXIT_EV_DEGRADED
+        ev_status = "FAIL"
+        print(f"[run_daily][降级] 证据门未过（{len(ev['problems'])} 项），"
+              "按降级策略继续生成，缺口会写在首屏横幅里。")
+    elif ev["exit_code"] == gate.DEGRADED and not args.allow_degraded:
+        ev_status = "DEGRADED"
+        print("[run_daily][降级] 证据门覆盖率不足，继续生成并标注数据不足。")
 
     # ② 生成 HTML：--data 走通用渲染器（数据驱动，免写 builder）；否则走旧 builder
     data_path = getattr(args, "data", None)
@@ -380,12 +428,20 @@ def do_report(args):
                            closed=closed)
     gate.render(rp)
     if rp["problems"]:
-        try:
-            out_html.unlink()
-            print(f"[run_daily][阻断] 报告门 FAIL，已删除不合格产物：{out_html.name}")
-        except OSError:
-            pass
-        print("请按 problems 补证据引用/修覆盖率横幅/补缺口披露后，重跑 report。")
+        # v2.6.0（PRD FR-07）：不再删产物，改为降级交付——保留真实内容，
+        # 首屏挂「数据不全」横幅，签名写 DEGRADED，退出码仍为 12 便于监控。
+        coverage = rp.get("combo_coverage") or ev["combo_coverage"]
+        shown = _apply_degrade(out_html, rp["problems"], coverage)
+        _inject_signature(out_html, args.date, args.session, coverage,
+                          status="DEGRADED", reason="report_gate")
+        _inject_version_footer(out_html, coverage, status="DEGRADED")
+        print("=" * 64)
+        print(f"[run_daily][降级交付] 报告门 {len(rp['problems'])} 项问题，"
+              f"产物已保留并标注缺口：")
+        for p in list(rp["problems"])[:shown]:
+            print(f"  · {p}")
+        print(f"[run_daily] 签名 = DEGRADED，退出码 {EXIT_RP_FAIL}（可被监控抓取）\n  {out_html}")
+        print("=" * 64)
         return EXIT_RP_FAIL
 
     # ④ 双门 PASS：校准覆盖率横幅 → 裸证据 ID 渲染为弱化徽标 → 写入门禁签名
@@ -395,6 +451,19 @@ def do_report(args):
     n_badges = _render_badges(out_html, report_root, args.date, args.session)
     if n_badges:
         print(f"[run_daily] 已把 {n_badges} 处裸证据 ID 渲染为弱化徽标。")
+
+    # 证据门没过：报告照出，但必须挂横幅 + DEGRADED 签名
+    if ev_status != "PASS":
+        _apply_degrade(out_html, ev["problems"], coverage)
+        _inject_signature(out_html, args.date, args.session, coverage,
+                          status="DEGRADED", reason="evidence_gate")
+        _inject_version_footer(out_html, coverage, status="DEGRADED")
+        print("=" * 64)
+        print(f"[run_daily][降级交付] 报告门 PASS，证据门未过 → 签名 DEGRADED，"
+              f"退出码 {EXIT_EV_FAIL}\n  {out_html}")
+        print("=" * 64)
+        return EXIT_EV_FAIL
+
     _inject_signature(out_html, args.date, args.session, coverage)
     _inject_version_footer(out_html, coverage)
     print("=" * 64)
@@ -408,12 +477,11 @@ def do_report(args):
 
 
 def ensure_utf8_stdout():
-    """Windows 控制台/计划任务默认 GBK，✅ 等字符会 UnicodeEncodeError。"""
-    for s in (sys.stdout, sys.stderr):
-        try:
-            s.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
+    """Windows 控制台/计划任务默认 GBK，✅ 等字符会 UnicodeEncodeError。
+
+    实现统一到 paths.ensure_utf8_stdout（v2.6.0 收敛）。
+    """
+    paths.ensure_utf8_stdout()
 
 
 def main():

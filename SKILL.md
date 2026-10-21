@@ -2,7 +2,7 @@
 name: daily-portfolio-analysis
 description: "深度持仓分析引擎。读取持仓档案，对每只持仓标的执行四层多角色辩论分析（5视角数据采集→多空强制辩论→三视角风控评估→基金经理终审），输出盘前/午间/盘后三时段深度报告。证据门禁：取证不达标禁止辩论、论点无证据ID禁止交付。当用户要求做每日持仓分析、盘前报告、午间总结、盘后总结、持仓操作建议、持仓诊断时使用。支持A股、港股、美股、基金多账户组合。"
 license: MIT
-version: 2.5.0
+version: 2.6.0
 metadata:
   requires-python: ">=3.10"
   entrypoint: "scripts/run_daily.py"
@@ -50,8 +50,9 @@ metadata:
 ```bash
 # 阶段一：取证骨架 + 首检证据门（FAIL→退出码10，并打印待补清单）
 python scripts/run_daily.py fetch --session <pre|noon|post> --date <日期> --holdings <holdings.md>
-#   ……agent 用 NeoData MCP 批量补行情/估值/财务/资金，派生指标跑 derive_indicators.py，
-#     新闻走搜索工具；全部原地写回 evidence/*.json（字段映射见 references/mcp-data-source.md）……
+#   ……v2.6.0 起脚本已直取行情/估值/技术面（见下方「数据源」），
+#     agent 只补：新闻、财报细节、产业链、宏观，以及填 data.json；
+#     派生指标缺口跑 derive_indicators.py；全部原地写回 evidence/*.json……
 python scripts/run_daily.py gate  --session <pre|noon|post> --date <日期> --holdings <holdings.md>  # 补证后复检，PASS(0) 才能继续
 # 阶段二：填好紧凑 data.json 后：强制证据门复检 → 通用渲染器生成 HTML → 报告门
 python scripts/run_daily.py report --session <pre|noon|post> --date <日期> \
@@ -65,12 +66,33 @@ python scripts/run_daily.py report --session <pre|noon|post> --date <日期> \
 
 物理保证（缺一不可）：
 
-- **证据门不过 → builder 根本不会运行**（退出码 10/11），无法"先写报告后补证据"。
-- **报告门不过 → 刚生成的 HTML 被删除**（退出码 12），不合格产物物理上不留存。
-- **双门全过 → HTML 被自动写入签名** `<meta name="daily-gate" content="PASS date=... session=... evidence=PASS report=PASS coverage=NN%">`。
-- **交付铁律：只允许交付带 `daily-gate` 签名的 HTML（桌面用 present_files 预览，手机走邮件/微信手动）；没有签名 = 没走门禁，一律禁止交付。**
-- 退出码：`0` 双门 PASS；`10` 证据门 FAIL（去补证）；`11` 覆盖率降级（需显式 `--allow-degraded` 并挂横幅）；`12` 报告门 FAIL（HTML 已删）；`2` 环境/参数错误。
-- 下方 Step 1/3/6 的单条命令仅用于手动排错；**正常出报告一律走 run_daily**。回归测试：`cd scripts && python -m unittest discover -s tests`（须全绿）。
+- **证据门不过 → 仍会出报告**，但首屏挂「数据不全」红条、签名写 `DEGRADED`，退出码 10。
+  理由：缺口本身就是要给用户看的信息；拦住等于让他当天什么都拿不到。
+- **报告门不过 → 产物保留 + 降级横幅**，退出码 12，**不再物理删除**。
+- **双门全过 → 签名 `content="PASS ..."`；任一门不过 → `content="DEGRADED ... reason=evidence_gate|report_gate"`。**
+- **交付铁律：只有带 `daily-gate` 签名（PASS 或 DEGRADED）的 HTML 才允许交付；没有签名 = 没走门禁，一律禁止。**
+  DEGRADED 交付时，正文第一句必须说明"数据不全"，不得让读者以为数据是完整的。
+- 退出码：`0` 双门 PASS；`10` 证据门 FAIL（已按降级交付）；`11` 覆盖率降级；`12` 报告门 FAIL（已按降级交付）；`2` 环境/参数错误。
+- 下方 Step 1/3/6 的单条命令仅用于手动排错；**正常出报告一律走 run_daily**。回归测试：`python -m unittest discover -s tests`（须全绿）。
+
+### 数据源（v2.6.0，脚本直取，别再逐只手工补）
+
+行情与估值现在**由脚本直接取**，不再依赖 agent 用 MCP 逐只补：
+
+| 市场 | 主源 | 兜底 | 能拿到的字段 |
+|---|---|---|---|
+| A股 | 腾讯（不封 IP） | baostock（纯 socket）、akshare | 现价/涨跌/量比/PE/PB/市值/换手/成交额/日K/52周分位/ATR |
+| 港股 | 腾讯 | — | 同上（含量比以外全部，含 52 周高低） |
+| 美股 | 新浪 | yfinance | 现价/涨跌/PE/市值/52周高低与分位/日K |
+| A股资金流 | 东财 push2 | — | 主力净流入（万元）、换手 |
+| 北向资金 | 同花顺沪深股通 | — | 当日累计净买入（万元） |
+| 美股期权 | CBOE | — | 期权 PCR（成交量/持仓量） |
+
+- 优先级链写在 `config/data-sources.json`（模板见 `config/data-sources.example.json`），**改配置即可换源，不用改脚本**。
+- 适配层只用标准库，**不装任何第三方包也能跑** A股/港股/美股（akshare/baostock 是可选的兜底）。
+- 东财在本机常被封 IP（`RemoteDisconnected`，绕代理也一样）：它只作补充，失败即降级并在 `gaps` 留痕，不要反复重试。
+- 每批次产物含字段级覆盖度报表 `coverage/<日期>_<时段>.json`：哪个字段一直取不到、该不该接新源，看这个。
+- **agent 的补证范围因此收窄**：行情/估值/技术面不用再补，专注新闻、财报、产业链、宏观与判断。
 
 ### Step 1 读持仓 + 脚本取证
 
@@ -96,8 +118,9 @@ python scripts/fetch_data.py --holdings <holdings.md> --session <pre|noon|post>
 
 - 两份解析器都会自动剔除这些行，清仓清单单独提取。
 - **报告门机械拦截**：已清仓标的若以标题/独立卡片（`#` 标题、`<h1-4>`、`card-title`）出现，
-  `check_report` 直接 FAIL、`run_daily` 删除 HTML；只允许在「跨报告对账」正文里用一句话提及
-  （如"AMDL 已于 9/18 清仓"）。
+  `check_report` 直接 FAIL，`run_daily` 保留产物但签名改 `DEGRADED`、首屏挂红条、退出码 12
+  （v2.6.0 起不再删除 HTML，但降级签名同样不允许当作正常报告交付）；
+  只允许在「跨报告对账」正文里用一句话提及（如"AMDL 已于 9/18 清仓"）。
 - 清仓标的遗留的旧证据 JSON（`evidence/*_<代码>.json`）会被报告门自动忽略，不计覆盖率、不提供 ID，
   无需手动删除。
 - 用户卖出后，应先在 holdings.md 对应行加删除线、状态写"已清仓"并记入变动日志；
@@ -116,8 +139,10 @@ python scripts/fetch_data.py --holdings <holdings.md> --session <pre|noon|post>
   `atr14`、`range_52w_pct`、`volume_ratio` 三个字段 MCP 不提供，**必须**用
   `python scripts/derive_indicators.py --mcp <kline.json> --ticker <代码>` 从 K 线算，
   不许目测、不许估；样本不足时写 `missing` + `gaps`，不许拿近似值充数。
-- **MCP 明确覆盖不到**：北向资金 `north_south_flow`、美股 `put_call_or_inst`、基金全部字段——
-  走搜索或其他公开渠道，取不到就写进 `gaps`。
+- **脚本已经取到的不许再补**：先看 `fetch_data` 灌进证据文件的点（`source` 以
+  `tencent:` / `sina:` / `eastmoney:` / `north:` / `cboe:` 开头的都是脚本取的），**只补空着的字段**。
+- **仍取不到的**：美股机构持仓 `put_call_or_inst`（PCR 脚本已给，机构部分仍缺）、
+  基金规模变化/经理变更/前十大持仓——走搜索或其他公开渠道，取不到就写进 `gaps`。
 - **新闻**：用本环境可用的搜索工具，每只标的完整版 ≥2 条（≥1 条 P1/P2，必须带可访问 URL），午间 ≥1 条。
   MCP 只给结构化行情，**不能替代新闻**。
 - **财报/估值缺口**：MCP 的 `valuation` / `financial_indicators` 优先（注意 A 股要用 `H1`/`9M`/`FY`
@@ -179,8 +204,10 @@ P4 不得唯一支撑论点（超 2 条阻断）、信息来源折叠区/免责�
 
 ### Step 7 交付与存档
 
-- 交付前确认 HTML 含 `<meta name="daily-gate" ...>` 签名（由 `run_daily.py report` 双门 PASS 后自动写入）；**无签名 = 没走门禁，禁止交付**。
-- **只交付 HTML 单文件**（桌面 present_files 预览 + 手机邮件附件）；MD 与证据 JSON 存档 `data/daily-reports/`（跨报告对账依据，不要删）。
+- 交付前确认 HTML 含 `<meta name="daily-gate" ...>` 签名（由 `run_daily.py report` 写入）；**无签名 = 没走门禁，禁止交付**。
+  签名有两种：`content="PASS …"` 是双门全过；`content="DEGRADED …"` 是降级交付（**可交付，但正文必须照实说缺口**）。
+- **只交付 HTML 单文件**（桌面 present_files 预览 + 手机 Bark 通知 → App 打开看全文）；MD 与证据 JSON 存档 `data/daily-reports/`（跨报告对账依据，不要删）。
+- 手机侧**不发邮件**（D-02 已冻结；Agent 邮箱本身 `not_bound`）：`notify.py --session <时段> --status <PASS|DEGRADED|FAIL>` 只负责叫醒。
 - 口头总结：Regime、机械覆盖率、综合建议、Top3 多空理由、买入区间、核心风险。
 
 ## 快速诊断（轻量模式）

@@ -249,11 +249,12 @@ def normalize_ticker(code, market):
 
 
 def safe_name(ticker):
-    """跨平台安全文件名（v2.2.3：补 Windows 非法字符，含反斜杠）。"""
-    out = str(ticker)
-    for ch in (".", "/", ":", chr(92), "*", "?", '"', "<", ">", "|"):
-        out = out.replace(ch, "_")
-    return out
+    """跨平台安全文件名。实现已统一到 paths.safe_name（v2.6.0）。
+
+    这里保留同名入口，是因为证据文件名规则被 gate 与 fetch 同时依赖，
+    两处各写一份映射迟早会漂移（曾出现 Windows 反斜杠只在一边被替换）。
+    """
+    return paths.safe_name(ticker)
 
 
 # ---------------------------------------------------------------------------
@@ -1048,13 +1049,9 @@ def ensure_utf8_stdout():
     """Windows 控制台/计划任务默认 GBK，打印符号会 UnicodeEncodeError。
 
     旧版在 GBK 下失败路径连 problems 都打不出来（退出码还会变 1），
-    等于把门禁的反馈闭环掐断；统一切 UTF-8。
+    等于把门禁的反馈闭环掐断。实现统一到 paths.ensure_utf8_stdout。
     """
-    for s in (sys.stdout, sys.stderr):
-        try:
-            s.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
+    paths.ensure_utf8_stdout()
 
 
 def render(result):

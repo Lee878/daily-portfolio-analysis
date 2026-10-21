@@ -20,10 +20,33 @@
   缺口必须写进 `gaps`；覆盖率由脚本机械计算。
 - **报告门**：每条论点必须挂真实存在的证据 ID；覆盖率横幅必须与机械值一致；多空必须各有独立证据；
   已清仓标的不得出现卡片；缺来源折叠区/免责/缺口披露一律拦。
-- **签名**：双门 PASS 后 HTML 头部写入 `<meta name="daily-gate" content="PASS …">`。
-  **没有签名 = 没走门禁，不许交付。**
+- **签名**：双门 PASS 后 HTML 头部写入 `<meta name="daily-gate" content="PASS …">`；
+  任一门未过则写 `DEGRADED …`。**没有签名 = 没走门禁，不许交付。**
+- **降级交付（v2.6.0 起）**：门禁没过多半是「数据缺」，而缺什么本身就是用户要知道的信息。
+  所以不再删产物，改为**保留真实内容 + 首屏红条标出缺口 + 签名写 DEGRADED**，退出码仍非 0 便于监控。
+  阻断级问题（无现价 / 证据 ID 悬空 / 多空同源）仍然不许出结论，只在缺口区说明「证据不足未出结论」。
 
-退出码：`0` 双门 PASS ｜ `10` 证据门 FAIL（去补证）｜ `11` 覆盖率过低（需显式 `--allow-degraded`）｜ `12` 报告门 FAIL（HTML 已删）｜ `2` 参数/环境错误。
+退出码：`0` 双门 PASS ｜ `10` 证据门 FAIL（已按降级交付）｜ `11` 覆盖率过低 ｜ `12` 报告门 FAIL（已按降级交付）｜ `2` 参数/环境错误。
+
+---
+
+## 数据从哪来（v2.6.0）
+
+行情与估值由**脚本直接取**，不再需要 agent 逐只用 MCP 补——这是省时间省 token 的关键一步。
+
+| 市场 | 主源 | 兜底 |
+|---|---|---|
+| A股 | 腾讯（不封 IP，一次返回含量比） | baostock（纯 socket）、akshare |
+| 港股 | 腾讯 | — |
+| 美股 | 新浪（含 52 周高低与 PE） | yfinance |
+| A股资金流 | 东财 push2 | — |
+| 北向资金 | 同花顺沪深股通 | — |
+| 美股期权 PCR | CBOE | — |
+
+- 优先级链在 `config/data-sources.json`（模板 `config/data-sources.example.json`），**改配置就能换源，不用动脚本**。
+- 适配层只用标准库：**不装任何第三方包也能取到 A股/港股/美股行情**；akshare/baostock 只是可选兜底。
+- 东财在本机常被封 IP（绕代理也断），所以它只作补充，失败就降级并写进 `gaps`，不反复重试。
+- 每批次会生成字段级覆盖度报表 `data/daily-reports/coverage/<日期>_<时段>.json`：哪个字段一直缺、该不该接新源，看这个。
 
 ---
 
@@ -42,7 +65,7 @@ python scripts/setup_local.py
 # 2) 填自己的持仓与关注库
 #    编辑 config/holdings.md、config/watchlist.md（格式见 examples/）
 
-# 3) 自检：语法 + 版本指纹 + 82 项回归测试
+# 3) 自检：语法 + 版本指纹 + 123 项回归测试
 python scripts/release.py doctor
 
 # 4) 取证（网络可用时去掉 --no-network）
@@ -62,10 +85,10 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
 | 目录 | 放什么 | 是否入库 |
 |---|---|---|
 | `SKILL.md` | 引擎标准（七步法、门禁口径、输出规范），**唯一权威** | ✅ |
-| `scripts/` | 8 个核心脚本：取证 / 门禁 / 渲染 / 编排 / 发布自检 … | ✅ |
+| `scripts/` | 12 个核心脚本：取证 / 门禁 / 渲染 / 编排 / 通知 / 发布自检，外加 `adapters/` 数据源适配层 | ✅ |
 | `references/` | 方法论与规范（分析流程、辩论协议、证据分级、HTML 规范…） | ✅ |
 | `assets/` | 样式、免责、data.json 填写规范、三个时段的 prompt 模板 | ✅ |
-| `tests/` | 62 项回归测试 | ✅ |
+| `tests/` | 123 项回归测试（含跨模块口径一致性测试） | ✅ |
 | `examples/` | 持仓/关注库的空模板 | ✅ |
 | `config/` | **你的真实持仓、关注库、送达配置** | ❌ 不入库 |
 | `data/` | 每日报告与证据 JSON（含成本、账户信息） | ❌ 不入库 |
@@ -83,8 +106,17 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
 - **涨红跌绿**（A 股习惯）：涨/多方红，跌/空方绿。
 - 顶部有锚点索引，25 张卡不用一路滑。
 
-**手机接收**：默认邮件推送（正文是纯文本摘要，附件是 HTML）。
-个人微信没有开放接口，无法自动发；需要时把 HTML 拖进「文件传输助手」即可。
+**手机接收（v2.6.0）**：Bark 负责叫醒，正文只放 3–5 行摘要（结论/动作/到价/缺口），
+全文点通知里的链接去 App 看——通知栏放不下整份报告，硬塞会把结论截断。
+
+配置 `config/notify.json`（复制 `config/notify.example.json`，填 `bark_key` 即生效）：
+
+```bash
+python scripts/notify.py --session post --status PASS --coverage 87.5 --summary "今日动作：持有为主"
+python scripts/notify.py --session post --status FAIL --reason "取数全失败"   # 告警，不受静默时段限制
+```
+
+邮件通道已冻结（不再依赖 Agent 邮箱）。个人微信无开放接口，只能手动转发。
 
 ---
 
@@ -137,7 +169,7 @@ python scripts/install_skill.py --check  # 只检查，不改文件
 
 ## 版本
 
-当前 `2.4.0`。版本号在 `VERSION.json`、`pyproject.toml`、`MANIFEST.json` 三处保持一致；
+当前 `2.6.0`。版本号在 `VERSION.json`、`pyproject.toml`、`MANIFEST.json` 三处保持一致；
 `MANIFEST.json` 用于校验"本机这份副本有没有被手改过"。
 
 ---

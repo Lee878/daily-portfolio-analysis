@@ -30,11 +30,15 @@
 
 | 字段 | 状态 | 处理 |
 |---|---|---|
-| `north_south_flow` | **无** | 北向资金已停止实时披露；能搜到当日口径就填，取不到写 gaps |
-| `put_call_or_inst`（美股 flow） | **无** | 用搜索补期权/机构持仓；取不到写 gaps（该字段允许文字） |
+| `north_south_flow` | ~~无~~ → **脚本直取** | v2.6.0 起由 `scripts/adapters/north.py` 取（`fetch_data` 自动调用，单位万元）。**不要再写 gaps**，除非适配器明确报失败 |
+| `put_call_or_inst`（美股 flow） | ~~无~~ → **脚本直取 PCR** | v2.6.0 起 `adapters/cboe.py` 给 `pcr_volume` / `pcr_oi` / `contracts`；机构持仓仍走搜索 |
 | 基金：`fund_scale_change`、`manager_change`、`top_holdings` | **无** | `fund_nav` 只给净值；这三项走基金公司官网/天天基金/搜索 |
 | 基金：`nav_latest`、`nav_change_pct`、`nav_position_pct_1y` | 可用 | 见 §8 |
 | `atr14` / `range_52w_pct` / `volume_ratio` | 需派生 | 见 §3，不许目测估计 |
+
+> 判断顺序：先看 `fetch_data` 已经把哪些字段灌进证据文件了（适配层出的点在 `source` 里写
+> `tencent:` / `sina:` / `eastmoney:` / `north:` / `cboe:`），**只补还空着的**。
+> 完整的层间分工见 `references/data-sources.md`。
 
 ## 3. 三个派生指标：用脚本算，不许心算
 

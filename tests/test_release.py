@@ -59,6 +59,35 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(version, r.read_version())
         self.assertEqual(len(build), 8)
 
+    def test_readme_counts_are_accurate(self):
+        """README 里「N 个核心脚本 / N 项回归测试」必须等于实际值。
+
+        这类数字靠手写必然漂——本次 review 实测中发现 README 声称
+        13 个脚本 / 126 项测试，实际是 12 / 121，两处都偏了。
+        而且偏的方向是「说多了」，比说少了更误导：读者会以为有东西没找到。
+        这里改成现算，让数字自己跟着代码走。
+        """
+        text = (r.ENG / "README.md").read_text(encoding="utf-8")
+
+        actual_scripts = len(list((r.ENG / "scripts").glob("*.py")))
+        m_script = re.search(r"(\d+)\s*个核心脚本", text)
+        self.assertIsNotNone(m_script, "README 未声明「N 个核心脚本」")
+        self.assertEqual(
+            int(m_script.group(1)), actual_scripts,
+            f"README 声称 {m_script.group(1)} 个脚本，实际 {actual_scripts} 个",
+        )
+
+        # countTestCases() 只数叶子、不执行，不会触发递归
+        loader = unittest.TestLoader()
+        suite = loader.discover(str(r.ENG / "tests"), top_level_dir=str(r.ENG / "tests"))
+        actual_tests = suite.countTestCases()
+        m_test = re.search(r"(\d+)\s*项回归测试", text)
+        self.assertIsNotNone(m_test, "README 未声明「N 项回归测试」")
+        self.assertEqual(
+            int(m_test.group(1)), actual_tests,
+            f"README 声称 {m_test.group(1)} 项测试，实际 {actual_tests} 项",
+        )
+
     def test_verify_detects_drift_then_matches(self):
         man = json.loads(r.MANIFEST_F.read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as d:

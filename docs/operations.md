@@ -49,19 +49,29 @@ App 的通知权限里包含「任务完成提醒、自动化通知」，定时�
 ⚠️ 电脑关机 = 任务不跑 = 收不到。这是本机部署的固有性质，云端沙箱没有你的
 Python 环境和 `config/holdings.md`，替代不了。
 
-### 路径二：邮件附件（可离线看，需先开通邮箱）
+### 路径二：Bark 通知（叫醒用，v2.6.0 起为手机侧主通道）
 
-`config/delivery.json`：
+`config/notify.json`（不入库，模板见 `config/notify.example.json`）：
 
 ```json
-{ "enabled": true, "to": "你的邮箱@example.com", "subject_prefix": "[持仓报告]" }
+{
+  "enabled": true,
+  "bark_key": "在 Bark App 里复制到的设备 key",
+  "bark_endpoint": "https://api.day.app",
+  "read_url_base": "",
+  "quiet_hours": ["23:00", "07:30"]
+}
 ```
 
-**前提**：WorkBuddy 的 Agent 邮箱要先开通——入口在「更多 → 我的邮箱」。
-未开通时发送会失败并提示 `not_bound`，此时定时任务不受影响，只是不推送。
+Bark **只负责叫醒**：通知栏放不下整份报告，正文截断在 400 字以内（3-5 行摘要），
+全文点开 App 看。午间自动用 `level=passive`（不响铃），告警走 `timeSensitive` 不受静默时段限制。
+`bark_key` 没填时脚本不发送，也不会伪造成功。
 
-正文是纯文本摘要（Regime / 覆盖率 / 今日动作 / 一句话风险），附件是 HTML，
-所以在微信里转发邮件也能直接读。
+### 路径二·原邮件通道（**已冻结，不要用**）
+
+按决策 D-02，邮件推送不再投入、`config/delivery.json` 的邮件位仅保留不开发。
+原因有二：Agent 邮箱本身 `not_bound`（未开通就发不出），且邮件明文经第三方服务器，
+不如 App 内读。**不要再让定时任务调邮箱工具**。
 
 ### 路径三：手动转微信（兜底）
 
@@ -156,7 +166,8 @@ python scripts/release.py doctor
 | A 股财务指标缺 ROE | 传了 `2026-Q2` 单季报 | 改累计报告期 `2026-H1` / `2026-9M` / `2026-FY` |
 | 港股财务查不到 | 用了 Q2/Q3/Q4 | 港股只有 `Q1/H2/9M/FY` |
 | 美股估值查不到 | `valuation` 不支持美股 | 改用 `financial_indicators`（含美股估值字段） |
-| 邮件推送报 `not_bound` | Agent 邮箱未开通 | 「更多 → 我的邮箱」开通后再发；不影响本地交付 |
+| Bark 报 `bark_key 为空` | `config/notify.json` 没填 key | 填 key 后重跑；不影响桌面交付 |
+| 推送成功但点开没内容 | `read_url_base` 留空 | 填成报告在 App 中的可访问前缀，否则通知只带摘不带链接 |
 
 ### 4.3 报告被删了
 
@@ -176,5 +187,5 @@ python scripts/release.py doctor
 
 - `config/` 含真实持仓金额与券商名；`data/` 含历史成本与账户信息。
 - 两者都在 `.gitignore` 里，**不要**强制提交。
-- 报告 HTML 会通过邮件发送，注意收件人与附件权限。
+- Bark 通知会经过第三方服务器（仅摘要文本），`bark_key` 等同于推送凭证，勿外泄。
 - 任何截图/日志贴到 issue 前，先把金额与账号打码。

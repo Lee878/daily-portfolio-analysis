@@ -43,7 +43,7 @@ python scripts/gate_check.py ... --stage report --report-file <work>/daily-repor
 ### 场景 2：数据源全挂（akshare 缺失或网络不通）
 - 前置：`--no-network` 或未装 akshare。
 - 期望：fetch 仍退出码 0，生成全 missing 骨架与 gaps；证据门 FAIL；
-  agent 用 seed_finance_lookup/general_search 补证后 PASS；
+  agent 用 NeoData MCP / 搜索补证后 PASS；
   若客观无法补齐且低于 50%，允许 `--allow-degraded`，但报告顶部必须有"数据不足"横幅，
   且只给定性判断。
 - 失败信号：脚本因缺库崩溃（不允许，必须优雅降级）；或未补证就放行辩论（门禁失效）。

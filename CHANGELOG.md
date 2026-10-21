@@ -1,5 +1,65 @@
 # Changelog
 
+## v2.6.0 · 数据源适配层 + 降级交付（2026-10-22）
+
+### 语义变更（重要，接的人先看这条）
+- **门禁 FAIL 不再删除 HTML，改为「降级交付」**：产物保留、首屏插红条（最多列 8 项
+  问题 + "另有 N 项"）、签名写 `content="DEGRADED date=… evidence=FAIL report=FAIL
+  coverage=… reason=…"`，**退出码仍非 0**（10/11/12），监控照旧能抓到。
+  理由：数据不全时报废等于当天零信息；留产物 + 显式降级标记，既能看到结论又不会误当正常报告。
+  横幅用 `<!--/degrade-->` 哨兵保证重复调用不叠加，问题文本走 `html.escape`。
+
+### 新增
+- **scripts/adapters/**：数据源适配层（`tencent` / `sina` / `eastmoney` / `north` /
+  `cboe` / `baostock_src`），只用标准库 `urllib`，**不装任何第三方包也能取 A股/港股/美股**。
+  统一出口 `snapshot(market, ticker)` / `kline(market, ticker, days)`，按
+  `config/data-sources.json` 的优先级链「先到先得」合并，失败源写进 `notes` 并降级。
+- **config/data-sources.example.json**：源链模板。换源改配置，不改代码。
+- **scripts/notify.py**：Bark 通知。只叫醒——正文上限 400 字，全文点链接去 App；
+  午间 `level=passive` 不响铃；告警走 `timeSensitive` 绕过静默时段；`bark_key` 空则不发送、不伪造。
+- **coverage/<日期>_<时段>.json**：字段级覆盖度报表（got/miss/rate/sources），
+  用来判断"哪个字段一直取不到、该不该接新源"，而不是凭感觉加数据源。
+- **docs/PRD-日报产品化-v1.0.md**：15 段完整 PRD，18 条 FR 全带 Given-When-Then，
+  5 个目标指标、8 项风险、RTM。用户三项决策：App 阅读 + Bark 通知 / 不做邮件 / 数据不全照发并标缺口。
+- **docs/数据源评估-开源Skill实测-2026-10-22.md**：两个开源 skill（87 + 50 端点）12 项实跑
+  通过、5 项不通过记录，结论是「抽成适配器」而不是运行时读 62 万字节 SKILL.md。
+
+### 补齐的旧缺口
+- `north_south_flow`（北向）：`adapters/north.py` 直取，单位万元，**不再写 gaps**。
+- 美股 `pcr_volume` / `pcr_oi`：`adapters/cboe.py` 解析 OSI 合约名，只回聚合值不落 1.9MB 原始链。
+
+### 修复
+- **东财 `f62` 语义错**：实测返回 2（`f184` 才是 15.78%），改走 `fflow/kline` 的 `f52`，
+  实测 `601899 = -345,490,048 元 → -34549.0 万元`。
+- **源链提前 break 漏字段**：原来看 `price_last` + `day_change_pct` 齐了就停，导致东财的
+  `main_net_inflow` 永远取不到；改为 `_CORE_FIELDS` 全齐才 break。
+- **港股成交额单位**：原为港元原值 `1.5e10`，改 `round(amt/1e4, 2)` → 万元。
+- **重复实现收敛**：`safe_name` / `ensure_utf8_stdout` 三处各有一份 → 统一委托 `paths`，
+  并用 `tests/test_parity.py`（7 条）断言 `parse_holdings` / `normalize_ticker` 两套实现结论一致。
+
+### 文档一致性（防模型偏差）
+全栈 review 查出并清掉了一批"教模型调不存在的工具"的旧文案：
+- `assets/cron-templates/`（3 份）归档到 `.archive/cron-templates-deprecated-2026-10-22/`：
+  硬编码另一台机器路径（`/home/user/Doubao/chats/…`）、引用已不存在的
+  `seed_finance_lookup` / `general_search`、且写着"报告门 FAIL 自动删 HTML"。
+- 三份 `assets/workbuddy-prompts/*.md`：改为降级交付语义；手机侧从「邮箱附件」改为
+  **Bark 通知 + App 阅读**（D-02 邮件冻结）。
+- `references/data-sources.md` 按 v2.6.0 重写为三层取数（脚本直取 → MCP → 搜索）；
+  `references/mcp-data-source.md` 的缺口表同步北向与美股 PCR 已由脚本覆盖。
+- SKILL.md / fetch_data.py / run_daily.py 内的 gaps 提示语与 docstring 清掉死工具名。
+
+### 测试与门禁
+- 测试 82 → **123** 项全绿。新增 `test_adapters.py`（24）、`test_parity.py`（7），
+  以及两条文档漂移守卫：
+  - `test_readme_counts_are_accurate`：README 的「N 个核心脚本 / N 项回归测试」必须等于实际值
+    （本次发现写着 13 脚本 / 126 测试，实际 12 / 121 —— 说多了比说少了更误导）。
+  - `test_no_dead_tool_names_in_agent_facing_files`：agent 面向的文件里不许出现已废弃的工具名。
+
+### 已知未做
+- 阅读载体能否在 App 内渲染 HTML 仍未验证（PRD RK-01 最高风险项）。
+- `config/notify.json` 的 `bark_key` 待用户填（当前 `enabled:false`）。
+- P1 告警尚未接进三个 WorkBuddy 定时任务。
+
 ## v2.5.0 · 接入 NeoData MCP 取数（2026-10-22）
 
 ### 背景

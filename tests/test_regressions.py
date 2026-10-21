@@ -314,5 +314,36 @@ class TestR11BriefSemantics(unittest.TestCase):
             self.assertEqual(gc.brief_set(root, "post"), {"AAPL"})
 
 
+    def test_no_dead_tool_names_in_agent_facing_files(self):
+        """agent 面向的文件里不许再出现已不存在的工具名。
+
+        v2.6.0 全栈 review 实测：SKILL.md / references / scripts / 定时任务模板里
+        散落着 `seed_finance_lookup` 与 `general_search`——这两个工具在当前的
+        工具集里根本不存在（行情走 NeoData MCP，新闻走 WebSearch）。
+        模型读到这种指令只有两种结果：空转重试，或者编一个"我已查询"。
+
+        只查 agent 真正会读的那几处；`docs/` 里的历史报告与 `.archive/` 是
+        存档，允许保留旧名，不算违规。
+        """
+        root = Path(__file__).resolve().parent.parent
+        dead = ("seed_finance_lookup", "general_search")
+        targets = [root / "SKILL.md", root / "README.md"]
+        for pat in ("references/*.md", "assets/**/*.md", "scripts/*.py"):
+            targets.extend(root.glob(pat))
+
+        offenders = []
+        for f in targets:
+            if not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8", errors="replace")
+            for name in dead:
+                if name in text:
+                    offenders.append(f"{f.relative_to(root).as_posix()} → {name}")
+        self.assertEqual(
+            offenders, [],
+            "这些文件还在教模型调用不存在的工具：\n  " + "\n  ".join(offenders),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

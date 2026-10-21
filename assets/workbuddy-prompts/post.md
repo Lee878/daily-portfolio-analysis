@@ -43,14 +43,17 @@
 
 4. **出报告 + 报告门**
    `python "{{REPO_DIR}}/scripts/run_daily.py" report --session post --date <当日> --data <绝对路径>/data.json`
-   - 退出码 **12** = 报告门 FAIL，HTML 会被自动删除：按 problems 修引用/覆盖率/缺口披露，重跑。
+   - 退出码 **12** = 报告门 FAIL，**HTML 保留但降级**（首屏红条 + 签名 `content="DEGRADED …"`）。
+     降级产物**可以交付**，但必须照实说明缺口；要拿到 PASS 签名就按 problems 修引用/覆盖率/缺口披露后重跑。
+   - 证据门没过（10/11）照样会出报告，签名同样是 `DEGRADED`——不要因为签名不是 PASS 就丢下用户不管。
 
 5. **交付（三层）**
    - 桌面：`present_files` 打开带签名的 HTML（唯一主交付，无签名禁止交付）。
-   - 手机：读 `{{REPO_DIR}}/config/delivery.json`；若 `enabled=true` 且 `to` 非空，用邮箱工具发送：
-     主题 `[持仓报告] 盘后 <日期>`；正文为**纯文本摘要**（Regime / 覆盖率 / 今日动作 ≤5 条 / 一句话风险，≤15 行）；
-     附件为该 HTML。发送失败不影响本地交付，在总结里说明原因。
-     若未开启推送，提示用户"可在 config/delivery.json 里填收件人开启"。
+   - 手机：**Bark 通知 + App 阅读**（D-01/D-02 已定；邮件通道冻结，不要发邮件）。
+     跑 `python "{{REPO_DIR}}/scripts/notify.py" --session post --status PASS --coverage <覆盖率> --summary "<今日动作/到价提醒，≤2 句>"`；
+     报告门/证据门没过就把 `--status` 换成 `DEGRADED` 并加 `--problems <缺口数>`，正文首行会自动变成"数据不全，结论仅作参考"。
+     若 `config/notify.json` 的 `bark_key` 为空，**不要伪造推送**，在总结里说一句"Bark 未配置，本盘仅桌面交付"。
+     通知发送失败不影响本地交付，如实说明失败原因。
    - 微信：个人微信无开放接口，不自动发；需要时由用户把 HTML 拖进「文件传输助手」。
    - 存档：`.md` 与 `evidence/*.json` 留在 `data/daily-reports/`，不发送、不删除。
 

@@ -120,17 +120,28 @@ class RunDailyPipeTests(unittest.TestCase):
         self.assertTrue(self.html.exists())
         self.assertIn('name="daily-gate"', self.html.read_text(encoding="utf-8"))
 
-    def test_bad_report_is_deleted(self):
+    def test_bad_report_degrades_not_deleted(self):
+        """v2.6.0（PRD FR-07）：报告门 FAIL 不再删产物，改为降级交付。
+
+        旧断言是「必须物理删除不合格 HTML」，与 D-03「数据不全照发」冲突。
+        新契约：产物保留 + 首屏横幅 + DEGRADED 签名 + 退出码仍非 0。
+        """
         rc = rd.do_report(self._args(self._make_builder(BAD_HTML)))
         self.assertEqual(rc, rd.EXIT_RP_FAIL)
-        self.assertFalse(self.html.exists(), "报告门 FAIL 必须物理删除不合格 HTML")
+        self.assertTrue(self.html.exists(), "降级交付必须保留产物，不得删除")
+        text = self.html.read_text(encoding="utf-8")
+        self.assertIn('id="degrade-banner"', text)
+        self.assertIn('content="DEGRADED', text)
 
-    def test_evidence_gate_blocks_builder(self):
-        # 删掉证据 → 证据门 FAIL，builder 不应被运行（产物不出现）
+    def test_evidence_gate_degrades_but_renders(self):
+        """证据门 FAIL 也要出报告：缺口本身就是用户要看的交付内容。"""
         (self.ev / "2026-09-21_pre_AAPL.json").unlink()
         rc = rd.do_report(self._args(self._make_builder(GOOD_HTML)))
-        self.assertEqual(rc, rd.EXIT_EV_FAIL)
-        self.assertFalse(self.html.exists(), "证据门 FAIL 时禁止生成报告")
+        # 报告门可能连带不过（缺整只标的章节），两种非 0 都算符合预期
+        self.assertIn(rc, (rd.EXIT_EV_FAIL, rd.EXIT_RP_FAIL))
+        self.assertTrue(self.html.exists(), "证据门 FAIL 时仍应产出降级报告")
+        self.assertIn('content="DEGRADED',
+                      self.html.read_text(encoding="utf-8"))
 
     def test_signature_is_single_even_if_rerun(self):
         self._prep_html()

@@ -73,7 +73,7 @@
     }
   ],
   "gaps": [
-    "ROE/营收增速未取到，需用 seed_finance_lookup 补最新财报数据"
+    "ROE/营收增速未取到，需用 NeoData financial_indicators 补最新财报数据"
   ]
 }
 ```
@@ -147,7 +147,7 @@
 ```
 fetch_data.py（脚本取证，能批量拿的全拿）
       ↓ 生成 evidence/*.json（含 missing 与 gaps）
-agent 补证（seed_finance_lookup / general_search，写回同一文件）
+agent 补证（NeoData MCP / 搜索，写回同一文件）
       ↓
 gate_check.py --stage evidence   ← 不通过：禁止进入辩论，回去补证或走降级声明
       ↓

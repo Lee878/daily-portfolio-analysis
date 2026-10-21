@@ -30,7 +30,7 @@ ENG = paths.ROOT
 VERSION_F = ENG / "VERSION.json"
 MANIFEST_F = ENG / "MANIFEST.json"
 PYPROJECT_F = ENG / "pyproject.toml"
-MIN_TESTS = 82
+MIN_TESTS = 110
 
 
 def managed_files():

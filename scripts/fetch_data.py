@@ -10,7 +10,7 @@ Daily Portfolio Analysis —— 取证脚本（证据门禁 Stage 1）
   3. 为每只持仓生成符合 references/evidence-schema.md 的证据 JSON
      （拿不到的数据点显式标 missing 并写入 gaps，绝不编造）
   4. 生成宏观共享证据骨架 *_macro.json（新闻、财报、产业链、宏观数据
-     必须由 agent 用 seed_finance_lookup / general_search 补证）
+     必须由 agent 用 NeoData MCP / 搜索补证）
 
 用法：
   python fetch_data.py --holdings holdings.md --session pre
@@ -34,6 +34,7 @@ import traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import adapters  # noqa: E402
 import paths  # noqa: E402
 
 SESSION_LABEL = {"pre": "盘前", "noon": "午间", "post": "盘后", "quick": "快速诊断"}
@@ -406,12 +407,66 @@ class MarketDataFetcher:
         self.a_spot = None      # A股全市场快照，只拉一次
         self.hk_spot = None
         self.errors = []
+        self._north = None      # 北向资金延迟取（一条批次只取一次）
         if network:
             try:
                 import akshare as ak  # type: ignore
                 self.ak = ak
             except ImportError:
-                self.errors.append("未安装 akshare，脚本只生成取证骨架；行情/财务需 agent 补证")
+                # v2.6.0 起不再是降级：适配层（tencent/sina/baostock）不依赖 akshare
+                self.errors.append(
+                    "未安装 akshare（可忽略：已走适配层取数；akshare 仅作最后兜底）")
+
+    # -- 适配层（v2.6.0 新增，首选通道）--------------------------------------
+    def _chain_points(self, market, ticker):
+        """走 adapters 源链取快照 + 日K，返回证据点与降级说明。
+
+        与旧的 akshare 路径相比，这里多出三样：
+          · volume_ratio 直接用源端给的量比（A股），不再自己按均量估算
+          · range_52w_pct 港股/美股由源端 52 周高低直接算出
+          · is_stale 僵尸报价标记，供门禁判断"是否真实现价"
+        """
+        points, gaps = [], []
+        if not self.network:
+            return points, gaps
+
+        fields, notes = adapters.snapshot(market, ticker)
+        rows, knotes = adapters.kline(market, ticker, 260)
+        metrics = _series_metrics(rows) if rows else {}
+
+        merged = dict(metrics)
+        for k, v in fields.items():
+            if v is not None:
+                merged[k] = v        # 快照比 K 线新，覆盖同名指标
+        currency = {"A股": "CNY", "港股": "HKD", "美股": "USD"}.get(market, "CNY")
+        src = f"adapters:{market}"
+        for field, value in merged.items():
+            if field == "is_stale":
+                continue
+            points.append(self._dp(field, value, "P3", src,
+                                   _field_unit(field, currency)))
+        if fields.get("is_stale"):
+            gaps.append(f"{ticker} 疑似僵尸报价（成交量为 0 且最新价等于昨收），"
+                        f"现价可能不是当日真实成交，需人工核对")
+
+        # 北向资金属于市场级数据，不随个股变化，一条批次只取一次
+        if market == "A股":
+            nv = self.north_flow()
+            if nv is not None:
+                points.append(self._dp("north_south_flow", nv, "P3",
+                                       "adapters:north",
+                                       _field_unit("north_south_flow", "CNY")))
+
+        for n in list(notes) + list(knotes):
+            if "无数据" in n or "Exception" in n or "Error" in n:
+                gaps.append(f"数据源降级 {ticker}: {n}")
+        return points, gaps
+
+    def north_flow(self):
+        if self._north is None:
+            value, _notes = adapters.north_flow()
+            self._north = value
+        return self._north
 
     def _safe(self, fn, *args, **kwargs):
         if self.ak is None:
@@ -460,8 +515,11 @@ class MarketDataFetcher:
             return None
 
     def fetch_a(self, ticker):
+        # v2.6.0：先走适配层（tencent → eastmoney），全挂才回落 akshare
+        points, gaps = self._chain_points("A股", ticker)
+        if any(p["field"] == "price_last" for p in points):
+            return points, gaps
         digits6 = ticker.split(".")[0]
-        points, gaps = [], []
         if self.ak is None:
             return points, gaps
         rows = self._a_hist(digits6)
@@ -524,10 +582,13 @@ class MarketDataFetcher:
         return self._hist_rows(df, cn=True)
 
     def fetch_hk(self, ticker):
+        # v2.6.0：适配层优先（tencent 不封 IP，本机比 akshare 稳）
+        points, gaps = self._chain_points("港股", ticker)
+        if any(p["field"] == "price_last" for p in points):
+            return points, gaps
         digits5 = ticker.split(".")[0].zfill(5)
-        points = []
         if self.ak is None:
-            return points, []
+            return points, gaps
         rows = self._hk_hist(digits5)
         metrics = _series_metrics(rows) if rows else {}
         spot = self._hk_spot_row(digits5)
@@ -549,7 +610,7 @@ class MarketDataFetcher:
             points.append(self._dp(field, value, "P3",
                                    "akshare:stock_hk_spot_em/hist",
                                    _field_unit(field, "HKD")))
-        return points, []
+        return points, gaps
 
     # -- 美股 ---------------------------------------------------------------
     def _us_hist(self, symbol):
@@ -579,12 +640,22 @@ class MarketDataFetcher:
             return []
 
     def fetch_us(self, ticker):
-        # v2.2.3：不再因 akshare 缺失直接返回空——yfinance 独立可用
+        # v2.6.0：适配层优先（sina 实时 + 日K，含 52 周高低与 PE）
+        points, gaps = self._chain_points("美股", ticker)
+        if any(p["field"] == "price_last" for p in points):
+            # 期权 PCR 单独取：单只约 2MB，不进普通快照链
+            pcr, pnotes = adapters.option_pcr(ticker)
+            for f, v in pcr.items():
+                if f != "contracts" and v is not None:
+                    points.append(self._dp(f, v, "P3", "adapters:cboe", ""))
+            gaps.extend(f"期权源降级 {ticker}: {n}" for n in pnotes)
+            return points, gaps
+        # 兜底：yfinance / akshare（v2.2.3 起 yfinance 独立可用）
         rows = self._us_hist(ticker)
         metrics = _series_metrics(rows) if rows else {}
-        points = [self._dp(k, v, "P3", "akshare:stock_us_daily/yfinance", "USD")
-                  for k, v in metrics.items()]
-        return points, []
+        for k, v in metrics.items():
+            points.append(self._dp(k, v, "P3", "akshare:stock_us_daily/yfinance", "USD"))
+        return points, gaps
 
     # -- 共用 ---------------------------------------------------------------
     @staticmethod
@@ -703,9 +774,10 @@ def build_evidence(holding, session, fetcher, date_str, brief=None):
     if holding["ticker"].startswith("NAME:"):
         gaps.append(f"标的 {holding['name']} 在 holdings.md 中缺证券代码，"
                     f"脚本无法取数：请补 6 位代码后重跑，或由 agent 按名称用 "
-                    f"seed_finance_lookup/general_search 补证")
+                    f"搜索补证")
     elif market == "基金":
-        gaps.append("场外基金无实时行情，需 agent 用 seed_finance_lookup/平台数据补净值与持仓")
+        gaps.append("场外基金无实时行情，需 agent 用 NeoData fund_nav 补净值，"
+                    "规模/经理/持仓走搜索")
     elif fund_like:
         # 场内 ETF / 杠杆 ETP：取交易价格，映射为净值口径，其余技术点保留供报告引用
         if market == "A股":
@@ -825,7 +897,7 @@ def build_macro_skeleton(session, date_str):
         "source": "", "source_url": "", "evidence_level": "P3",
         "fetched_by": "agent", "status": "missing",
     } for i, (f, label) in enumerate(macro_fields, 1)]
-    gaps = ["宏观数据需 agent 用 seed_finance_lookup/general_search 补证"]
+    gaps = ["宏观数据需 agent 用 NeoData 宏观工具 / 搜索补证"]
     return {
         "schema_version": "1.0", "report_date": date_str, "session": session,
         "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -837,27 +909,18 @@ def build_macro_skeleton(session, date_str):
 def safe_name(ticker):
     """把 ticker/基金名转成跨平台安全文件名。
 
-    v2.2.3：补上 Windows 非法字符（反斜杠 / 通配符 / 引号 / 竖线）。
-    Markdown 表格里 `帮你投 \\| 全球精选100` 转义后 cells[0] 含反斜杠，
-    Linux 上合法、Windows 上是路径分隔符，旧版会直接 FileNotFoundError。
-    只增加替换、不改变原有 . / : 的映射，历史证据文件名保持兼容。
+    实现统一到 paths.safe_name（v2.6.0）：此前 fetch 与 gate 各写一份，
+    Windows 反斜杠只在一边被替换，两边产出的文件名会对不上。
     """
-    out = str(ticker)
-    for ch in (".", "/", ":", chr(92), "*", "?", '"', "<", ">", "|"):
-        out = out.replace(ch, "_")
-    return out
+    return paths.safe_name(ticker)
 
 
 def ensure_utf8_stdout():
     """Windows 控制台/计划任务默认 GBK，打印 ✗/✅ 会 UnicodeEncodeError 中断流程。
 
-    统一把 stdout/stderr 切到 UTF-8（极端环境退化为替换字符，绝不抛异常）。
+    实现统一到 paths.ensure_utf8_stdout（v2.6.0 收敛，原先 4 个脚本各一份）。
     """
-    for s in (sys.stdout, sys.stderr):
-        try:
-            s.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
+    paths.ensure_utf8_stdout()
 
 
 def load_brief(base_dir, session):
@@ -867,6 +930,45 @@ def load_brief(base_dir, session):
     """
     return paths.brief_tickers(session, extra_dirs=(base_dir,))
 
+
+def write_coverage_report(report_root, date_str, session, evs):
+    """字段级覆盖度报表（PRD FR-15）。
+
+    回答一个问题：**哪个字段一直取不到、该不该为它接个新源**。
+    逐标的记字段去向，再按字段汇总，连续缺失的字段一眼可见。
+    """
+    per_ticker = {}
+    agg: dict = {}
+    for ev in evs:
+        rows = {}
+        for p in ev.get("data_points", []):
+            got = p.get("status") == "verified"
+            rows[p["field"]] = {"got": got, "source": p.get("source") or "",
+                                "level": p.get("evidence_level") or ""}
+            a = agg.setdefault(p["field"], {"got": 0, "miss": 0, "sources": {}})
+            a["got" if got else "miss"] += 1
+            if p.get("source"):
+                a["sources"][p["source"]] = a["sources"].get(p["source"], 0) + 1
+        per_ticker[ev["ticker"]] = {
+            "name": ev.get("name", ""), "market": ev.get("market", ""),
+            "instrument": ev.get("instrument", ""),
+            "fields": rows, "gaps": len(ev.get("gaps") or []),
+        }
+
+    payload = {
+        "date": date_str, "session": session,
+        "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "summary": {f: {"got": a["got"], "miss": a["miss"],
+                        "rate": round(a["got"] / (a["got"] + a["miss"]) * 100, 1)
+                        if (a["got"] + a["miss"]) else 0.0,
+                        "sources": a["sources"]}
+                    for f, a in agg.items()},
+        "tickers": per_ticker,
+    }
+    out = report_root / "coverage" / f"{date_str}_{session}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return out, payload
 
 
 def main():
@@ -928,8 +1030,10 @@ def main():
     fetcher = MarketDataFetcher(network=not args.no_network)
     brief = load_brief(holdings_path.parent, args.session)
     written = []
+    all_evs = []
     for h in holdings:
         ev = build_evidence(h, args.session, fetcher, args.date, brief=brief)
+        all_evs.append(ev)
         verified = sum(1 for p in ev["data_points"] if p["status"] == "verified")
         # 一个点都没取到 + 有报错 → 把原因写进 gaps，避免被误读成"标的不存在"
         if verified == 0 and fetcher.errors:
@@ -950,6 +1054,12 @@ def main():
         mout.write_text(json.dumps(macro, ensure_ascii=False, indent=2), encoding="utf-8")
         written.append(mout)
         print(f"  - 宏观证据骨架 → {mout.name}")
+
+    # 覆盖度报表（PRD FR-15）：字段级取数去向，用于判断该不该接新源
+    cov_path, cov = write_coverage_report(report_root, args.date, args.session, all_evs)
+    worst = sorted(cov["summary"].items(), key=lambda kv: kv[1]["rate"])[:5]
+    tail = "、".join("%s %.0f%%" % (f, v["rate"]) for f, v in worst)
+    print(f"  - 覆盖度报表 → coverage/{cov_path.name}（最缺：{tail}）")
 
     if fetcher.errors:
         print("\n[warn] 取数过程中的降级（已写入 gaps，不影响骨架生成）:")
