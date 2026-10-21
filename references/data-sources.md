@@ -1,71 +1,128 @@
-# 数据源与取数优先级（v2.6.0）
+# Data Sources
 
-取数分三层，**顺序不能反**：脚本能拿的不要交给 agent，agent 能拿的不要靠猜。
+各市场的数据源指南和取数优先级。
 
-| 层 | 谁来做 | 覆盖什么 | 成本 |
-|---|---|---|---|
-| ① 脚本直取 | `scripts/adapters/`（零第三方依赖） | 实时行情、日K、估值、市值、资金流、北向、美股 PCR | 0 token |
-| ② NeoData MCP | agent 补证时调用 | 结构化行情/财务/资金/基金净值（脚本取不到的） | 中 |
-| ③ 搜索 | agent 补证时调用 | 公告、新闻、研报、官网、产业链 | 高 |
+## 数据优先级原则
 
-> 优先级链配置在 config/data-sources.json（模板 config/data-sources.example.json），
-> 按顺序「先到先得」合并，某源挂了自动落到下一个，并把失败原因写进 `gaps`。
-> 改数据源**只改配置**，不改代码。
+**第一优先级：seed_finance_lookup（同花顺数据库）**
+- 标准化金融数据的第一入口
+- 行情数据、财务数据、资金流向、技术指标
+- A股资金流向（主力/北向）必须用这个
 
-## ① 脚本直取（adapters）
+**第二优先级：general_search（通用搜索）**
+- 新闻、公告、政策、行业事件
+- 公司公告原文、监管文件
+- 券商研报、行业分析
 
-| 适配器 | 覆盖 | 说明 |
+## A股数据源
+
+### 行情数据
+- **第一来源**：seed_finance_lookup
+  - 当前价格、涨跌幅、成交额、换手率、量比
+  - PE TTM、PB、PS、总市值
+  - 主力资金流向、北向资金
+  - 技术指标（MA、MACD、RSI）
+
+### 财务数据
+- **第一来源**：seed_finance_lookup
+  - 营收、净利润、ROE、毛利率
+  - 资产负债表、现金流量表
+- **补充来源**：general_search 搜索年报/季报原文
+
+### 新闻公告
+- **第一来源**：general_search
+  - 交易所公告（上交所、深交所）
+  - 公司官网投资者关系
+  - 主流财经媒体
+
+## 港股数据源
+
+### 行情数据
+- **第一来源**：seed_finance_lookup
+  - 当前价格、涨跌幅、成交额
+  - PE、PB、总市值
+- **补充来源**：general_search
+
+### 财务数据
+- **第一来源**：seed_finance_lookup
+- **补充来源**：general_search 搜索 HKEX 披露易公告
+
+### 资金流向
+- **南向资金**：seed_finance_lookup
+- **主力资金**：general_search 补充
+
+## 美股数据源
+
+### 行情数据
+- **第一来源**：seed_finance_lookup
+  - 当前价格、涨跌幅、成交额
+  - PE、PB、总市值
+- **补充来源**：general_search
+
+### 财务数据
+- **第一来源**：seed_finance_lookup
+- **补充来源**：general_search 搜索 SEC 文件（10-K、10-Q）
+
+### 资金流向
+- **机构持仓/主力资金**：general_search（期权/VIX/IV/PCR 板块已移除，不取证）
+
+## 宏观数据
+
+- **第一来源**：seed_finance_lookup
+  - 利率（国债收益率）
+  - 汇率
+  - 大宗商品价格（黄金、原油）
+- **第二来源**：general_search
+  - CPI、PMI、非农就业
+  - 美联储/央行政策决议
+
+## 取证预算（下限，不是上限）
+
+> v2 关键变化：旧版把搜索写成"最多 5+5 次"的上限，是产物偏浅的结构性原因之一。
+> 现在以**证据门 PASS** 为终点：脚本已批量拉取的行情不占搜索预算，agent 的搜索次数
+> 按下表保底，上不封顶；搜索的目的是填满证据文件并通过 gate，不是凑次数。
+
+**脚本负责（不占搜索次数）**：最新价、涨跌幅、MA、52 周分位、ATR、量比、PE/PB/市值、
+A股主力资金（akshare 可用时）。脚本拿不到的会在证据文件里标 missing 并写入 gaps。
+
+**agent 最低搜索投入（每只标的）**：
+
+| 取证项 | 完整版 pre/post | 午间 noon |
 |---|---|---|
-| tencent.py | A股 / 港股 实时 + 前复权日K | 首选源。含 PE/PB/总市值/量比/52周高低/`is_stale` 僵尸报价 |
-| sina.py | 美股 实时 + 日K | 36 字段解析，含 PE/52周高低/市值 |
-| eastmoney.py | A股 / 港股 主力净流入、市值 | 走 fflow/kline 的 `f52`（元→万元）；有 0.35s 节流 |
-| north.py | 北向资金 | data.hexin.cn；输出单位**万元** |
-| cboe.py | 美股期权 PCR（成交量/持仓量） | 只回聚合值，不落 1.9MB 原始链 |
-| baostock_src.py | A股日K兜底 | 纯 socket；未装包时静默跳过 |
+| 个股新闻/公告（general_search，逐只） | ≥1 次检索，登记 ≥2 条（≥1 条 P1/P2） | ≥1 次检索，≥1 条 |
+| 财报缺口（seed_finance_lookup：ROE/增速等 missing 点） | ≥1 次，直到补全或确认无数据 | 按缺口 |
+| 产业链/板块（general_search） | ≥1 次，形成 ≥1 条 chain_note | ≥1 条 |
+| 宏观（期货/美元/美债/油金） | pre/post 各 ≥1 组 | 可选 |
 
-- 出口字段口径固定：市值=**亿元**、资金流=**万元**、涨跌与分位=**%**。
-- 每次取证后看 `coverage/<日期>_<时段>.json` 的字段级覆盖度，它决定该不该接新源。
+**原则**：
+- 一次查询只解决一个主要问题，不要把财务、新闻、行业混在一个 query
+- 先补硬必需（价格/新闻），再补财报、产业链、宏观
+- 查不到就保留 missing + gaps，**严禁为了过门而编造数字或 URL**（伪造 ID/URL 在报告门与抽查中会被发现）
+- 同一公告多家转载只登记一条（独立证据族）
 
-## ② NeoData MCP
+## 数据质量检查
 
-字段映射、单位换算、9 个已踩过的坑，全部写在 references/mcp-data-source.md，**动手前先读**。
+取数后必须检查：
+1. **时间一致性**：所有数据是否都是同一个时间点？
+2. **口径一致性**：同比还是环比？reported 还是 adjusted？
+3. **单位一致性**：亿元还是万元？美元还是人民币？
+4. **来源可靠性**：是不是权威来源？
 
-关键分工：MCP 只给**结构化数据**；新闻与产业链不走 MCP。
+如果数据有冲突，两个都写出来，不要擅自选一个。
 
-## ③ 搜索
+## 权威信源白名单（国外优先，拒绝小报）
 
-- `WebSearch`：公告、政策、研报、产业链、突发。
-- `url` 必须是**可访问的具体文章页**，禁首页 URL、禁占位。
+### 国际权威财经媒体（主用）
+Bloomberg、Reuters、Wall Street Journal、Financial Times、CNBC、MarketWatch、Seeking Alpha、Barron's。
 
-## 按市场看
+### 华尔街投行公开观点
+Morgan Stanley、Goldman Sachs、JPMorgan、Bank of America、汇丰、德银等的公开研报/评级观点（券商观点按 evidence-standards 打折，注意利益关联）。
 
-### A股
-- 行情/估值/资金：① `tencent` → `eastmoney`（脚本直取，通常不需要 agent 介入）
-- 北向：① `north`
-- 财务（ROE/增速）：② `financial_indicators`
-- 新闻公告：③ 交易所公告、公司 IR、主流财经媒体
+### Twitter/X 权威金融博主
+Serenity（@aleabitoreddit / @SerenityRSH）、@zerohedge、@biancoresearch、@LiveSquawk。社媒/KOL 属弱证据，只作线索，需强证据印证，不能单独支撑决策。
 
-### 港股
-- 行情/估值：① `tencent` → `eastmoney`
-- 财务：② `financial_indicators`（报告期只有 Q1/H2/9M/FY）
-- 南向资金：① `north`；公告：③ HKEX 披露易
+### 国内权威源（辅助）
+东方财富、同花顺、格隆汇、财新、智通财经、证券时报/上证报/中国证券报；交易所与监管官网为强证据。
 
-### 美股
-- 行情：① `sina`
-- 估值/财务：② `financial_indicators`（`valuation` 不支持美股）
-- 期权 PCR：① `cboe`；机构持仓：③ 搜索
-- 财报原文：③ SEC 10-K / 10-Q
-
-### 场外基金
-- 净值：② `fund_nav`（代码加 `.OF`；`limit` 是**总条数**）
-- 净值三字段派生：`../scripts/derive_indicators.py --fund`
-- 规模变化/经理变更/前十大持仓：③ 基金公司官网、天天基金
-
-### 宏观
-- 利率/汇率/大宗：① 暂无适配器 → ② `macro_cn` / `macro_global` → ③ 搜索
-- 宏观日历：② `macro_calendar`
-
-## 缺口处理铁律
-
-取不到就写 `gaps`，**不许编、不许占位、不许拿近似值充数**。
-门禁只看「有没有值」，编一个假值能过门但会直接毁掉结论。
+### 禁止
+不使用小道消息、无来源截图、营销号/自媒体小报作为判断依据；传闻必须标注"未经证实"。

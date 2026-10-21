@@ -1,10 +1,3 @@
-> **状态（2026-10-21 更新）：本方案已按 v2.4.0 落地，但与当时设想有出入，以此为准：**
-> - 目录已按 skill 规范重组为 `SKILL.md + scripts/ + references/ + assets/ + tests/`（不是 `engine/`），见 `README.md`。
-> - 豆包的 cron 蓝绿重建、`/runtime` 副本、`present_files` 直链均已移除；定时改由 WorkBuddy 内置任务触发。
-> - 关注库改为"默认全部深度分析"（`watchlist_brief.json` 是降级名单）。
-> - 交付：本地存档 + 桌面 present_files 预览 + 邮件附件（微信无官方接口，只能手动）。
-> 下文保留为历史决策记录。
-
 # 股票每日更新 · 迁移方案（豆包 → WorkBuddy）
 
 > 生成时间：2026-10-21 19:43（Asia/Shanghai）；选型确认：**2026-10-21 用户拍板 WorkBuddy、整体迁移、交付通道目标平台自定**

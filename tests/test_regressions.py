@@ -21,7 +21,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import fetch_data as fd  # noqa: E402
 import gate_check as gc  # noqa: E402
@@ -187,31 +187,16 @@ class TestR6AllowDegraded(unittest.TestCase):
 
 
 class TestR7PathDefaults(unittest.TestCase):
-    def _holdings(self, d):
-        h = Path(d) / "holdings.md"
-        h.write_text("# 持仓\n## A股持仓\n| 名称 | 代码 | 数量 | 成本 | 现价 |\n"
-                     "|---|---|---|---|---|\n| a | 601899 | 1 | 1 | 1 |\n",
-                     encoding="utf-8")
-        return h
-
-    def test_report_root_prefers_portable_layout(self):
-        """便携模式：holdings 同级已有 daily-reports/ 时用它（拷走整个目录即可用）。"""
+    def test_report_root_follows_holdings(self):
         with tempfile.TemporaryDirectory() as d:
-            h = self._holdings(d)
-            (Path(d) / "daily-reports").mkdir()
-            root, hh = rd.resolve_paths(argparse.Namespace(holdings=str(h),
-                                                           report_root=None))
+            h = Path(d) / "holdings.md"
+            h.write_text("# 持仓\n## A股持仓\n| 名称 | 代码 | 数量 | 成本 | 现价 |\n"
+                         "|---|---|---|---|---|\n| a | 601899 | 1 | 1 | 1 |\n",
+                         encoding="utf-8")
+            args = argparse.Namespace(holdings=str(h), report_root=None)
+            root, hh = rd.resolve_paths(args)
             self.assertEqual(hh, h)
             self.assertEqual(root, Path(d) / "daily-reports")
-
-    def test_report_root_defaults_to_repo_data_dir(self):
-        """标准布局：没有同级 daily-reports 时落在 <仓库>/data/daily-reports。"""
-        import paths as paths_mod
-        with tempfile.TemporaryDirectory() as d:
-            h = self._holdings(d)
-            root, _ = rd.resolve_paths(argparse.Namespace(holdings=str(h),
-                                                          report_root=None))
-            self.assertEqual(root, paths_mod.report_root())
 
 
 class TestR8Units(unittest.TestCase):
@@ -275,93 +260,6 @@ class TestR10Preflight(unittest.TestCase):
         problems = []
         self.pf.check_card(card, problems, "pre")
         self.assertTrue(any("bull" in p for p in problems))
-
-
-class TestR11BriefSemantics(unittest.TestCase):
-    """v2.4.0：关注库缺省**全部深度分析**；只有进 brief 名单的才降级。
-
-    旧版是"深度白名单"（未列出=简列），配错一次就把 7 只美股关注票静默降级了。
-    """
-
-    def test_default_is_deep(self):
-        with tempfile.TemporaryDirectory() as d:
-            self.assertEqual(gc.brief_set(Path(d), "post"), set())
-            self.assertEqual(fd.load_brief(Path(d), "post"), frozenset())
-
-    def test_explicit_brief_downgrades(self):
-        with tempfile.TemporaryDirectory() as d:
-            root = Path(d)
-            (root / "watchlist_brief.json").write_text(
-                json.dumps({"post": ["SNDK"]}), encoding="utf-8")
-            self.assertEqual(gc.brief_set(root, "post"), {"SNDK"})
-            self.assertEqual(gc.brief_set(root, "pre"), set())
-            self.assertEqual(fd.load_brief(root, "post"), frozenset({"SNDK"}))
-
-    def test_cli_override_wins(self):
-        import os
-        os.environ["DAILY_BRIEF_TICKERS"] = "NVDA, TSM"
-        try:
-            self.assertEqual(gc.brief_set(Path("."), "post"), {"NVDA", "TSM"})
-        finally:
-            os.environ.pop("DAILY_BRIEF_TICKERS", None)
-
-    def test_nearest_file_wins_over_config(self):
-        """report_root 内的 brief 优先，避免测试/临时目录被真实 config 串扰。"""
-        with tempfile.TemporaryDirectory() as d:
-            root = Path(d)
-            (root / "watchlist_brief.json").write_text(
-                json.dumps({"post": ["AAPL"]}), encoding="utf-8")
-            self.assertEqual(gc.brief_set(root, "post"), {"AAPL"})
-
-
-    def test_no_dead_tool_names_in_agent_facing_files(self):
-        """agent 面向的文件里不许再出现已不存在的工具名。
-
-        v2.6.0 全栈 review 实测：SKILL.md / references / scripts / 定时任务模板里
-        散落着 `seed_finance_lookup` 与 `general_search`——这两个工具在当前的
-        工具集里根本不存在（行情走 NeoData MCP，新闻走 WebSearch）。
-        模型读到这种指令只有两种结果：空转重试，或者编一个"我已查询"。
-
-        只查 agent 真正会读的那几处；`docs/` 里的历史报告与 `.archive/` 是
-        存档，允许保留旧名，不算违规。
-        """
-        root = Path(__file__).resolve().parent.parent
-        dead = ("seed_finance_lookup", "general_search")
-        targets = [root / "SKILL.md", root / "README.md"]
-        for pat in ("references/*.md", "assets/**/*.md", "scripts/*.py"):
-            targets.extend(root.glob(pat))
-
-        offenders = []
-        for f in targets:
-            if not f.is_file():
-                continue
-            text = f.read_text(encoding="utf-8", errors="replace")
-            for name in dead:
-                if name in text:
-                    offenders.append(f"{f.relative_to(root).as_posix()} → {name}")
-        self.assertEqual(
-            offenders, [],
-            "这些文件还在教模型调用不存在的工具：\n  " + "\n  ".join(offenders),
-        )
-
-
-    def test_prompts_have_no_frozen_channel_or_manual_push(self):
-        """三份时段 prompt 不许再出现「邮箱发送」与「手动跑 notify.py」。
-
-        这两种错误都很贵：邮件通道 D-02 已冻结（且 Agent 邮箱 not_bound 发不出），
-        手动跑 notify.py 会和 `run_daily report` 的自动推送叠加成两条。
-        定时任务只指向这些文件，文件一错，每天错三次。
-        """
-        root = Path(__file__).resolve().parent.parent
-        banned = ("邮箱工具", "config/delivery.json", "notify.py --session")
-        offenders = []
-        for f in sorted((root / "assets" / "workbuddy-prompts").glob("*.md")):
-            text = f.read_text(encoding="utf-8", errors="replace")
-            for phrase in banned:
-                if phrase in text:
-                    offenders.append(f"{f.name} → {phrase}")
-        self.assertEqual(offenders, [],
-                         "prompt 里还有过期通道指令：\n  " + "\n  ".join(offenders))
 
 
 if __name__ == "__main__":

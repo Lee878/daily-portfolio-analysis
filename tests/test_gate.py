@@ -15,10 +15,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import fetch_data as fd  # noqa: E402
 import gate_check as gc  # noqa: E402
+import fetch_data as fd  # noqa: E402
+
 
 HOLDINGS_MD = """# 持仓档案
 ## A股持仓
@@ -542,9 +543,9 @@ class TestWatchlist(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         (self.root / "evidence").mkdir(parents=True)
-        # v2.4.0 语义反转：brief 里是"要降级"的名单；留空 = 全部深度分析
-        (self.root / "watchlist_brief.json").write_text(
-            json.dumps({"pre": [], "noon": [], "post": []}),
+        # LITE 为本组测试的深度关注标的
+        (self.root / "watchlist_depth.json").write_text(
+            json.dumps({"pre": [], "noon": [], "post": ["LITE"]}),
             encoding="utf-8")
         self.lite = gc.parse_watchlist(WATCHLIST_MD)[0]
 

@@ -29,9 +29,6 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import paths  # noqa: E402
-
 DIM_WEIGHTS_STOCK = {"fundamental": 0.25, "technical": 0.20, "flow": 0.20,
                      "news": 0.20, "chain": 0.15}
 DIM_WEIGHTS_FUND = {"fundamental": 0.40, "technical": 0.30,
@@ -249,12 +246,11 @@ def normalize_ticker(code, market):
 
 
 def safe_name(ticker):
-    """跨平台安全文件名。实现已统一到 paths.safe_name（v2.6.0）。
-
-    这里保留同名入口，是因为证据文件名规则被 gate 与 fetch 同时依赖，
-    两处各写一份映射迟早会漂移（曾出现 Windows 反斜杠只在一边被替换）。
-    """
-    return paths.safe_name(ticker)
+    """跨平台安全文件名（v2.2.3：补 Windows 非法字符，含反斜杠）。"""
+    out = str(ticker)
+    for ch in (".", "/", ":", chr(92), "*", "?", '"', "<", ">", "|"):
+        out = out.replace(ch, "_")
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -480,28 +476,23 @@ def is_fund_like(ev):
         "ETF", "LEVERAGED_ETP", "FUND", "CASH_MGMT")
 
 
-_OLD_DEPTH_WARNED = False
+def depth_set(report_root, session):
+    """读取 watchlist_depth.json，返回本 session 需'深度分析'的关注 ticker 集合。
 
-
-def brief_set(report_root, session):
-    """返回本时段**只做简列**的关注标的（降级名单）。
-
-    v2.4.0 语义反转：旧版 watchlist_depth.json 是"深度白名单"，未列出=简列；
-    现在缺省 = **全部深度分析**，只有明确写进 watchlist_brief.json 的才降级。
-    这样"我关注的票"默认都被认真分析，不会再因为名单配错被静默降级。
-    探测顺序：单次 --brief 覆盖 > report_root 邻近（测试夹具）> config/。
+    单一真相：用户在 watchlist_depth.json 增删 ticker，引擎与定时任务读取同一文件，
+    未列出的关注标的按 brief（仅在关注库总览表列示现价/目标价）处理。
+    真实布局 depth 在 report_root 的上级；兼容测试夹具把 depth 放在 report_root 内。
     """
-    global _OLD_DEPTH_WARNED
-    brief = paths.brief_tickers(session, extra_dirs=(report_root,
-                                                    Path(report_root).parent))
-    if not brief and not _OLD_DEPTH_WARNED:
-        old = paths.config_dir() / "watchlist_depth.json"
-        if old.exists():
-            print("[gate][warn] 检测到旧 watchlist_depth.json：语义已改为 "
-                  "watchlist_brief.json（缺省=全部深度分析），旧文件不再生效，可删除")
-            _OLD_DEPTH_WARNED = True
-    return brief
-
+    for base in (Path(report_root).parent, Path(report_root)):
+        p = base / "watchlist_depth.json"
+        if not p.exists():
+            continue
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+            return {str(t) for t in d.get(session, [])}
+        except Exception:
+            continue
+    return set()
 
 
 def chain_score(ev, session):
@@ -545,7 +536,7 @@ def check_evidence(report_root, date, session, holdings, allow_degraded=False):
     ev_dir = report_root / "evidence"
     problems, warnings_all, cards = [], [], []
     coverages = []
-    brief = brief_set(report_root, session)
+    depth = depth_set(report_root, session)
 
     for h in holdings:
         fn = ev_dir / f"{date}_{session}_{safe_name(h['ticker'])}.json"
@@ -568,7 +559,7 @@ def check_evidence(report_root, date, session, holdings, allow_degraded=False):
 
         # 简列关注（watchlist 但不在深度名单）：只要求真实现价，进关注库总览表，
         # 不强制多空新闻/产业链/基本面，不计入组合覆盖率
-        if h.get("watchlist") and h["ticker"] in brief:
+        if h.get("watchlist") and h["ticker"] not in depth:
             by_field = {p.get("field"): p for p in ev.get("data_points", [])}
             for f in ("price_last", "day_change_pct"):
                 p = by_field.get(f)
@@ -808,7 +799,7 @@ def check_report(report_root, date, session, holdings, report_file,
     wl_info = {}  # ticker → watchlist 元数据 + verified 现价
     text = Path(report_file).read_text(encoding="utf-8", errors="ignore")
     ev_dir = report_root / "evidence"
-    brief = brief_set(report_root, session)
+    depth = depth_set(report_root, session)
 
     # 只装载当前在册持仓 + macro 的证据文件；已清仓标的的旧证据一律忽略
     # （既不计入覆盖率，也不提供 ID），从源头消除"已卖标的还在报告里"。
@@ -821,7 +812,7 @@ def check_report(report_root, date, session, holdings, report_file,
     coverages = []
     # brief 关注标的不进组合覆盖率（与证据门口径一致），否则其低覆盖会拉低 combo
     brief_tickers = {h["ticker"] for h in holdings
-                     if h.get("watchlist") and h["ticker"] in brief}
+                     if h.get("watchlist") and h["ticker"] not in depth}
     for f in sorted(expected_files):
         if not f.exists():
             continue
@@ -861,7 +852,7 @@ def check_report(report_root, date, session, holdings, report_file,
     min_refs = 3 if session == "noon" else 6
     for h in holdings:
         inst_h = instrument_for(h)
-        is_brief_wl = bool(h.get("watchlist")) and h["ticker"] in brief
+        is_brief_wl = bool(h.get("watchlist")) and h["ticker"] not in depth
         if inst_h in ("ADVISORY", "CASH_MGMT") or is_brief_wl:
             # 投顾/现金仅列示；简列关注只在关注库总览表，均不要求独立章节
             continue
@@ -933,7 +924,7 @@ def check_report(report_root, date, session, holdings, report_file,
         says_buy = re.search(r"可接回|建议买入|建议接回|到价可|可买入", body)
         says_block = re.search(r"先别接|价值陷阱|不要接|暂不接|暂不买入|降级|待验证", body)
 
-        is_brief_wl = h["ticker"] in brief
+        is_brief_wl = h["ticker"] not in depth
 
         if is_brief_wl:
             # 简列关注：未到价禁喊买；到价须在总览表标红并提示进入目标区（不强制完整清单）
@@ -1049,9 +1040,13 @@ def ensure_utf8_stdout():
     """Windows 控制台/计划任务默认 GBK，打印符号会 UnicodeEncodeError。
 
     旧版在 GBK 下失败路径连 problems 都打不出来（退出码还会变 1），
-    等于把门禁的反馈闭环掐断。实现统一到 paths.ensure_utf8_stdout。
+    等于把门禁的反馈闭环掐断；统一切 UTF-8。
     """
-    paths.ensure_utf8_stdout()
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
 
 
 def render(result):
@@ -1090,9 +1085,15 @@ def main():
     args = ap.parse_args()
 
     report_root = Path(args.report_root)
-    holdings_path = paths.resolve_holdings(args.holdings)
-    if holdings_path is None:
-        print("[error] 找不到 holdings.md（config/holdings.md 或 --holdings 指定）")
+    holdings_path = Path(args.holdings) if args.holdings else report_root.parent / "holdings.md"
+    if not holdings_path.exists():
+        for cand in [report_root / "holdings.md",
+                     Path("/home/user/Doubao/chats/38441678557998594/holdings.md")]:
+            if cand.exists():
+                holdings_path = cand
+                break
+    if not holdings_path.exists():
+        print(f"[error] 找不到 holdings.md（试过 {holdings_path}），用 --holdings 指定")
         sys.exit(2)
     md_text = holdings_path.read_text(encoding="utf-8")
     holdings = parse_holdings(md_text)
@@ -1104,9 +1105,9 @@ def main():
     # 关注库：仅纳入"接下来要开盘市场"对应标的（pre→A股/港股，post→美股），
     # noon/quick 不纳入；与持仓合并去重（持仓在前）。
     wl_markets = {"pre": {"A股", "港股"}, "post": {"美股"}}.get(args.session, set())
-    wl_path = paths.watchlist_path(holdings_path)
+    wl_path = holdings_path.parent / "watchlist.md"
     watchlist = []
-    if wl_markets and wl_path:
+    if wl_markets and wl_path.exists():
         watchlist = [w for w in parse_watchlist(wl_path.read_text(encoding="utf-8"))
                      if w["market"] in wl_markets]
     merged, mseen = [], set()
