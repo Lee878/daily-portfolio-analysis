@@ -1,19 +1,19 @@
 {
   "version": "2.6.1",
-  "released_at": "2026-10-22T07:43:23+08:00",
+  "released_at": "2026-10-22T07:49:59+08:00",
   "minimum_tests": 110,
   "file_count": 45,
   "files": {
     "CHANGELOG.md": {
-      "sha256": "5cf59f4e7b3a8a7ab7f0d6aa8212fdb710b56c58a99211517076265d0f63051f",
-      "bytes": 25965
+      "sha256": "278ce9575da7315852898d2d0bd731cc55a3704fe880b7af6d4360fc82f3be0d",
+      "bytes": 26836
     },
     "LICENSE": {
       "sha256": "5fc73cb37992e654fb0a15a064d023b0805d51b85ca15e65238c8d8af6d882c8",
       "bytes": 1191
     },
     "README.md": {
-      "sha256": "9703590930c9957e11f66abd81a38b2dbb93f5349b50251f5f9dcdf5e13a18ea",
+      "sha256": "ce5815fcf5eec864e1a61f7b5110fa522961617287eeb56bd3d66a21a931b2d1",
       "bytes": 9264
     },
     "SKILL.md": {
@@ -173,8 +173,8 @@
       "bytes": 4065
     },
     "tests/test_regressions.py": {
-      "sha256": "462d7447870d53e49deaa8ab951824f31e4c3e43845b3cec35c497e764b5f1c1",
-      "bytes": 16854
+      "sha256": "96e642e3956ea4a83a9d84c4cbe2c7f2f47f3f3ce4f81414280ab60e9f1d8cbf",
+      "bytes": 17895
     },
     "tests/test_release.py": {
       "sha256": "16073e054dcb18c81cc2464405a6609c07793715056a62f6853069d84aee3da3",

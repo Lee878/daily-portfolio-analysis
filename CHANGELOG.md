@@ -24,7 +24,17 @@
 - `config/notify.json` 已配置真实 `bark_key`（该文件不入库）；实测 PASS 与 FAIL 两条通知均收到。
 
 ### 测试
-- 123 → **131** 项全绿。
+- 123 → **132** 项全绿。
+
+### 定时任务（automation 侧，不在仓库内）
+- 三个定时任务（盘前 8:30 / 午间 12:00 / 盘后 20:00）的 prompt 原先内嵌了一份「铁律」，
+  把流程文件里的门禁与交付规则又抄了一遍。本版改了流程，那份副本没跟着变，
+  于是每天三次都在执行「只交付 PASS 签名」「用邮箱工具发附件」这类过期指令。
+  现改为**单一真相**：prompt 只指向 `assets/workbuddy-prompts/<时段>.md`，并注明
+  `{{REPO_DIR}}` 代入仓库根；只保留三条不随版本漂移的约束（仓库根执行 / 不许造假 /
+  用户已定通道：Bark + App、不发邮件、不要手动跑 notify.py）。
+- 新增守卫 `test_prompts_have_no_frozen_channel_or_manual_push`：prompt 里再出现
+  「邮箱工具」「config/delivery.json」「notify.py --session」即失败。
 
 ## v2.6.0 · 数据源适配层 + 降级交付（2026-10-22）
 

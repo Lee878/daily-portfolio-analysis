@@ -345,5 +345,24 @@ class TestR11BriefSemantics(unittest.TestCase):
         )
 
 
+    def test_prompts_have_no_frozen_channel_or_manual_push(self):
+        """三份时段 prompt 不许再出现「邮箱发送」与「手动跑 notify.py」。
+
+        这两种错误都很贵：邮件通道 D-02 已冻结（且 Agent 邮箱 not_bound 发不出），
+        手动跑 notify.py 会和 `run_daily report` 的自动推送叠加成两条。
+        定时任务只指向这些文件，文件一错，每天错三次。
+        """
+        root = Path(__file__).resolve().parent.parent
+        banned = ("邮箱工具", "config/delivery.json", "notify.py --session")
+        offenders = []
+        for f in sorted((root / "assets" / "workbuddy-prompts").glob("*.md")):
+            text = f.read_text(encoding="utf-8", errors="replace")
+            for phrase in banned:
+                if phrase in text:
+                    offenders.append(f"{f.name} → {phrase}")
+        self.assertEqual(offenders, [],
+                         "prompt 里还有过期通道指令：\n  " + "\n  ".join(offenders))
+
+
 if __name__ == "__main__":
     unittest.main()
