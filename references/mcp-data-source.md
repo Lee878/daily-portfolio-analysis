@@ -32,7 +32,8 @@
 |---|---|---|
 | `north_south_flow` | **无** | 北向资金已停止实时披露；能搜到当日口径就填，取不到写 gaps |
 | `put_call_or_inst`（美股 flow） | **无** | 用搜索补期权/机构持仓；取不到写 gaps（该字段允许文字） |
-| 基金 / 场外基金全部字段 | **无** | `valuation`/`fund_flow` 不覆盖基金；走基金公司官网或搜索 |
+| 基金：`fund_scale_change`、`manager_change`、`top_holdings` | **无** | `fund_nav` 只给净值；这三项走基金公司官网/天天基金/搜索 |
+| 基金：`nav_latest`、`nav_change_pct`、`nav_position_pct_1y` | 可用 | 见 §8 |
 | `atr14` / `range_52w_pct` / `volume_ratio` | 需派生 | 见 §3，不许目测估计 |
 
 ## 3. 三个派生指标：用脚本算，不许心算
@@ -70,6 +71,9 @@ python scripts/derive_indicators.py --mcp k1.json --mcp k2.json --ticker 601899.
 8. **`valuation` 和 `fund_flow` 都不支持美股**。
 9. **`technical` 的 `tech_data` 可能滞后**（实测 10-21 却只到 10-08），均线一律用
    K 线自算，不要直接抄 `tech_data.ma5`。
+10. **`fund_nav` 的 `limit` 是总条数，不是每只条数**：4 只基金传 `limit=2` 只会回来 2 条
+    （实测少了两只基金，且不报错）。查 N 只基金时 `limit` 至少给 N 的倍数，
+    例如 4 只 × 3 天 → `limit=20`。
 
 ## 5. 单位（写进报告前必须换算）
 
@@ -97,3 +101,29 @@ python scripts/derive_indicators.py --mcp k1.json --mcp k2.json --ticker 601899.
 MCP 取到的数据点写 `source: "neodata:<tool>"`、`fetched_by: "agent"`、`evidence_level: "P3"`。
 `data_points` 不强制 `source_url`（只有 `news` 强制），所以不填 URL 不会挂门禁；
 但**不许把 MCP 的数当成 P1/P2**，它只是结构化行情数据源。
+
+## 8. 基金（场外 .OF）
+
+`fund_nav` 支持场外公募基金，代码后缀 `.OF`（例：`000217.OF`）。实测 4 只联接基金全部取到。
+
+```bash
+# 拉净值：limit 给足（见坑 10），output_fields 裁掉无用阶段收益
+#   fund_codes=000217.OF,007467.OF,021893.OF,013403.OF  limit=20
+# 存成 JSON 后，按基金逐只派生分位（必须带 --ticker，混算会被脚本拒绝）
+python scripts/derive_indicators.py --fund fn.json --ticker 000217.OF
+```
+
+覆盖情况：
+
+| 字段 | 来源 |
+|---|---|
+| `nav_latest` | `fund_net_asset_value` |
+| `nav_change_pct` | `fund_adjusted_daily_growth_rate` |
+| `nav_position_pct_1y` | 脚本按近一年净值区间算（>200 条才算完整一年） |
+
+`fund_nav` 一次最多 100 条，一年约 250 个交易日 → 要拿满需分 3 段取（用多个 `--fund` 合并）。
+拿不到满一年时，`nav_position_pct_1y` 标 `estimated` 并在 `gaps` 说明样本天数。
+
+**基金另外三个字段（规模变化 / 经理变更 / 前十大持仓）MCP 覆盖不到**，走基金公司官网、
+天天基金或搜索；取不到写 `gaps`。注意场外联接基金的前十大持仓通常就是目标 ETF，
+写清楚这一点，别当成股票持仓分析。

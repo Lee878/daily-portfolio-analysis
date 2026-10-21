@@ -117,5 +117,48 @@ class TestDerive(unittest.TestCase):
             self.assertIsNone(got[k], f"{k} 算不出时必须是 None 而不是 0")
 
 
+class TestFund(unittest.TestCase):
+    def _funds(self, code="000217.OF", n=10):
+        return [{"fund_code": code,
+                 "fund_trading_day": f"2026-{1 + i // 28:02d}-{1 + i % 28:02d} 00:00:00",
+                 "fund_net_asset_value": str(2.0 + i * 0.01),
+                 "fund_adjusted_daily_growth_rate": "0.5"} for i in range(n)]
+
+    def test_filters_by_code(self):
+        """批量拉回多只基金时，必须只算指定那只，否则分位会用到别只的净值。"""
+        mixed = self._funds("000217.OF") + self._funds("007467.OF", n=5)
+        got = di.derive_fund(di._extract_funds(mixed), code="000217.OF")
+        self.assertEqual(got["bars_used"], 10)
+        self.assertEqual(got["nav_latest"], 2.09)
+
+    def test_refuses_ambiguous_batch(self):
+        mixed = self._funds("000217.OF") + self._funds("007467.OF")
+        with self.assertRaises(ValueError):
+            di.derive_fund(di._extract_funds(mixed))
+
+    def test_position_pct(self):
+        got = di.derive_fund(di._extract_funds(self._funds()), code="000217.OF")
+        # 区间 2.00..2.09，现净值就是最高 → 100%
+        self.assertEqual(got["nav_position_pct_1y"], 100.0)
+        self.assertEqual(got["nav_change_pct"], 0.5)
+
+    def test_short_sample_flagged(self):
+        got = di.derive_fund(di._extract_funds(self._funds(n=3)), code="000217.OF")
+        self.assertTrue(any("<200" in n for n in got["notes"]))
+
+    def test_empty_returns_none(self):
+        got = di.derive_fund([], code="000217.OF")
+        self.assertIsNone(got["nav_latest"])
+        self.assertIsNone(got["nav_position_pct_1y"])
+
+    def test_parses_envelope(self):
+        payload = {"status": "success", "result": self._funds()}
+        self.assertEqual(len(di._extract_funds(payload)), 10)
+
+    def test_rejects_non_fund(self):
+        with self.assertRaises(ValueError):
+            di._extract_funds({"foo": 1})
+
+
 if __name__ == "__main__":
     unittest.main()

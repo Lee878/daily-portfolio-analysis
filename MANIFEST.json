@@ -1,6 +1,6 @@
 {
   "version": "2.5.0",
-  "released_at": "2026-10-22T00:18:44+08:00",
+  "released_at": "2026-10-22T00:25:39+08:00",
   "minimum_tests": 82,
   "file_count": 41,
   "files": {
@@ -37,16 +37,16 @@
       "bytes": 9232
     },
     "assets/workbuddy-prompts/noon.md": {
-      "sha256": "79f7d63255c06db26b31f7211f5e547b457bad575477ae14adf3690ab133e20b",
-      "bytes": 5439
+      "sha256": "45793afc5fcb4ab8cdec4066317435d47727235511692506074e64e8d546abf2",
+      "bytes": 5754
     },
     "assets/workbuddy-prompts/post.md": {
-      "sha256": "81cb45d52c952dd7266c7d3b568a1b1e2591934bea30b51f9e56433e253c04f3",
-      "bytes": 5457
+      "sha256": "1391da9569c217973c9dab6d8598edd04ec73d613fabd863aef211c598021ea8",
+      "bytes": 5772
     },
     "assets/workbuddy-prompts/pre.md": {
-      "sha256": "ec80c065cbb468cdaeb0607601af1d38ed57cc2155859d75fad08f1adc00d0f5",
-      "bytes": 5596
+      "sha256": "ebd9d356156590029768a8fa08d37e2befd957edca8ce4d40b07a0dfaa49d714",
+      "bytes": 5911
     },
     "pyproject.toml": {
       "sha256": "87bcaacc8aaf8a19af6a3dde768cf29e3e1648bd4dd665e539f2f9e67febe383",
@@ -81,8 +81,8 @@
       "bytes": 12660
     },
     "references/mcp-data-source.md": {
-      "sha256": "7927f5dfff6947d5debdc5368db7d4834ead86e2c4de0a963627fe0329bcb370",
-      "bytes": 5577
+      "sha256": "fb6797fc2e7e31b5e63923506895630ec05f8ffc7774181d4254d82b9dfd9477",
+      "bytes": 7196
     },
     "references/output-templates.md": {
       "sha256": "8b52c6afc6d36a491fdb403781550e96cbd3a70cd9e46cade294fc93c9e98e51",
@@ -101,8 +101,8 @@
       "bytes": 5806
     },
     "scripts/derive_indicators.py": {
-      "sha256": "060f160599112d189d198443cb6405be08eb222e3fc99960717df986b0e168f1",
-      "bytes": 12249
+      "sha256": "52f4f5d335fb9632468deb8ccfdcbb805ff75e7cb1838a79e80bfcef83f0d639",
+      "bytes": 17329
     },
     "scripts/fetch_data.py": {
       "sha256": "2b70a3ede41630a1640a49ee1b2de4c4d50c77e9dcfea1edacdddd096d7a110b",
@@ -149,8 +149,8 @@
       "bytes": 16
     },
     "tests/test_derive.py": {
-      "sha256": "2159f39d01ee4bcf96067571f6f1820be13c146244c1f00feefadbac8cc60c70",
-      "bytes": 4700
+      "sha256": "74f414ff60771139d0c83ffb7e55822375a7685392a9cee91d7dc38d31266b70",
+      "bytes": 6607
     },
     "tests/test_gate.py": {
       "sha256": "d1aa08ee2dd2871c65f839d1f62697dee8624a3b6b87c708f8eb54caecb90a9c",

@@ -163,6 +163,88 @@ def _merge(bars_list):
     return [seen[k] for k in sorted(seen)]
 
 
+def _extract_funds(payload):
+    """从 fund_nav 返回里取净值序列：[{trade_date, nav}]。
+
+    注意 `limit` 在这类工具里是**总条数**而非每只条数（实测：4 只基金传 limit=2
+    只回来 2 条），所以批量查时要给足 limit，否则会静默少几成数据。
+    """
+    raw = payload.get("result") if isinstance(payload, dict) else payload
+    if not isinstance(raw, list):
+        raise ValueError("不是 fund_nav 返回（缺少 result[]）")
+    out = []
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
+        nav = _num(row.get("fund_net_asset_value"))
+        if nav is None:
+            continue
+        day = str(row.get("fund_trading_day") or "")[:10]
+        if not day:
+            continue
+        out.append({
+            "trade_date": day,
+            "nav": nav,
+            "change_pct": _num(row.get("fund_adjusted_daily_growth_rate")),
+            "code": row.get("fund_code", ""),
+        })
+    out.sort(key=lambda r: r["trade_date"])
+    return out
+
+
+def _merge_funds(records_list):
+    seen = {}
+    for recs in records_list:
+        for r in recs:
+            seen[(r["code"], r["trade_date"])] = r
+    return [seen[k] for k in sorted(seen)]
+
+
+def derive_fund(records, code=""):
+    """基金三字段：nav_latest / nav_change_pct / nav_position_pct_1y。
+
+    基金没有高低价，用单位净值替代：分位 = 现净值在近一年净值区间中的位置。
+
+    **必须按基金代码分开算**：批量拉回来的 records 可能混着多只基金，
+    混算会把别的基金的净值当成本基金的高低点，分位直接算错。
+    """
+    codes = {r["code"] for r in records if r.get("code")}
+    if code:
+        records = [r for r in records if r.get("code") == code]
+    elif len(codes) > 1:
+        raise ValueError(f"records 里有多只基金 {sorted(codes)}，请用 --ticker 指定一只")
+
+    notes = []
+    if not records:
+        return {"nav_latest": None, "nav_change_pct": None,
+                "nav_position_pct_1y": None, "bars_used": 0,
+                "notes": [f"没有 {code or '该基金'} 的净值记录"]}
+
+    last = records[-1]
+    # 只取最近 250 个交易日（约一年）
+    window = records[-WEEKS_52_BARS:]
+    navs = [r["nav"] for r in window]
+    hi, lo = max(navs), min(navs)
+    pos = None
+    if hi > lo:
+        pos = round((last["nav"] - lo) / (hi - lo) * 100, 2)
+    else:
+        notes.append("近一年净值无波动，nav_position_pct_1y 算不出")
+
+    if len(window) < 200:
+        notes.append(f"只有 {len(window)} 条净值（<200），"
+                     "nav_position_pct_1y 非完整一年，应标 estimated")
+
+    return {
+        "as_of": last["trade_date"],
+        "bars_used": len(window),
+        "nav_latest": round(last["nav"], 4),
+        "nav_change_pct": last["change_pct"],
+        "nav_position_pct_1y": pos,
+        "notes": notes,
+    }
+
+
 def derive(bars):
     """返回证据门的 technical 字段字典 + 说明。"""
     notes = []
@@ -251,7 +333,28 @@ def _selftest():
     merged = _merge([seg_a, seg_b])
     assert len(merged) == 25, f"合并去重失败：{len(merged)}"
     assert derive(merged)["price_last"] == got["price_last"]
-    print("[selftest] OK —— 派生指标算法、占位行剔除、省略行剔除、多段合并均正确")
+
+    # 基金：净值分位（现净值在近一年区间的位置）
+    funds = [{"fund_code": "000217.OF",
+              "fund_trading_day": f"2026-{1 + i // 28:02d}-{1 + i % 28:02d} 00:00:00",
+              "fund_net_asset_value": str(2.0 + i * 0.01),
+              "fund_adjusted_daily_growth_rate": "0.5"} for i in range(10)]
+    fg = derive_fund(_extract_funds(funds), code="000217.OF")
+    assert fg["nav_latest"] == round(2.09, 4), fg["nav_latest"]
+    # 区间 2.00..2.09，现价就是最高 → 100%
+    assert fg["nav_position_pct_1y"] == 100.0, fg["nav_position_pct_1y"]
+    assert fg["nav_change_pct"] == 0.5
+    assert any("<200" in n for n in fg["notes"]), "样本不足必须提示"
+    # 多只基金混在一起又不指定代码 → 必须报错，不能静默混算
+    two = _extract_funds(funds) + [dict(r, code="007467.OF") for r in _extract_funds(funds)]
+    try:
+        derive_fund(two)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("多只基金混算未被拦住")
+
+    print("[selftest] OK —— K 线派生、占位/省略行剔除、多段合并、基金净值分位均正确")
 
 
 def main():
@@ -262,11 +365,13 @@ def main():
             pass
 
     ap = argparse.ArgumentParser(
-        description="从日 K 线派生 atr14 / range_52w_pct / volume_ratio / 均线")
+        description="从日 K 线/基金净值派生门禁要求但 MCP 不提供的字段")
     ap.add_argument("--mcp", action="append",
                     help="NeoData quote_and_kline 的完整返回 JSON（可重复，多段合并）")
     ap.add_argument("--kline", action="append",
                     help="纯 K 线数组 JSON（可重复，多段合并）")
+    ap.add_argument("--fund", action="append",
+                    help="NeoData fund_nav 的完整返回 JSON（可重复，多段合并）")
     ap.add_argument("--out", help="输出文件（默认打印到 stdout）")
     ap.add_argument("--ticker", default="", help="写进结果的标的代码，便于对账")
     ap.add_argument("--selftest", action="store_true", help="跑内置验算")
@@ -275,37 +380,49 @@ def main():
     if args.selftest:
         _selftest()
         return 0
-    if not (args.mcp or args.kline):
-        ap.error("必须给 --mcp 或 --kline（或用 --selftest）")
+    if not (args.mcp or args.kline or args.fund):
+        ap.error("必须给 --mcp / --kline / --fund（或用 --selftest）")
 
-    segments = []
-    for src in list(args.mcp or []) + list(args.kline or []):
+    def _load(src):
         p = Path(src)
         if not p.exists():
-            print(f"[error] 文件不存在：{p}", file=sys.stderr)
-            return 2
+            raise FileNotFoundError(f"文件不存在：{p}")
         try:
-            payload = json.loads(p.read_text(encoding="utf-8"))
+            return json.loads(p.read_text(encoding="utf-8"))
         except Exception as e:
-            print(f"[error] {p.name} JSON 解析失败：{e}", file=sys.stderr)
+            raise ValueError(f"{p.name} JSON 解析失败：{e}") from e
+
+    # 基金路径：净值分位，字段名与股票不同
+    if args.fund:
+        try:
+            recs = [_extract_funds(_load(src)) for src in args.fund]
+        except (FileNotFoundError, ValueError) as e:
+            print(f"[error] {e}", file=sys.stderr)
             return 2
         try:
-            segments.append(_extract_bars(payload))
+            result = derive_fund(_merge_funds(recs), code=args.ticker)
         except ValueError as e:
-            print(f"[error] {p.name}: {e}", file=sys.stderr)
+            print(f"[error] {e}", file=sys.stderr)
             return 2
+    else:
+        segments = []
+        for src in list(args.mcp or []) + list(args.kline or []):
+            try:
+                segments.append(_extract_bars(_load(src)))
+            except (FileNotFoundError, ValueError) as e:
+                print(f"[error] {e}", file=sys.stderr)
+                return 2
+        bars = _merge(segments)
+        if not bars:
+            print("[error] 没有任何有效 K 线（全是未开盘/停牌占位）", file=sys.stderr)
+            return 2
+        result = derive(bars)
 
-    bars = _merge(segments)
-    if not bars:
-        print("[error] 没有任何有效 K 线（全是未开盘/停牌占位）", file=sys.stderr)
-        return 2
-
-    result = derive(bars)
     result["ticker"] = args.ticker
     text = json.dumps(result, ensure_ascii=False, indent=2)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
-        print(f"[derive] 已写出 {args.out}（{result['bars_used']} 根 K 线）")
+        print(f"[derive] 已写出 {args.out}（{result['bars_used']} 条记录）")
         for n in result["notes"]:
             print(f"  ! {n}")
     else:
