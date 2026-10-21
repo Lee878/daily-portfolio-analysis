@@ -2,7 +2,7 @@
 name: daily-portfolio-analysis
 description: "深度持仓分析引擎。读取持仓档案，对每只持仓标的执行四层多角色辩论分析（5视角数据采集→多空强制辩论→三视角风控评估→基金经理终审），输出盘前/午间/盘后三时段深度报告。证据门禁：取证不达标禁止辩论、论点无证据ID禁止交付。当用户要求做每日持仓分析、盘前报告、午间总结、盘后总结、持仓操作建议、持仓诊断时使用。支持A股、港股、美股、基金多账户组合。"
 license: MIT
-version: 2.6.0
+version: 2.6.1
 metadata:
   requires-python: ">=3.10"
   entrypoint: "scripts/run_daily.py"
@@ -207,7 +207,10 @@ P4 不得唯一支撑论点（超 2 条阻断）、信息来源折叠区/免责�
 - 交付前确认 HTML 含 `<meta name="daily-gate" ...>` 签名（由 `run_daily.py report` 写入）；**无签名 = 没走门禁，禁止交付**。
   签名有两种：`content="PASS …"` 是双门全过；`content="DEGRADED …"` 是降级交付（**可交付，但正文必须照实说缺口**）。
 - **只交付 HTML 单文件**（桌面 present_files 预览 + 手机 Bark 通知 → App 打开看全文）；MD 与证据 JSON 存档 `data/daily-reports/`（跨报告对账依据，不要删）。
-- 手机侧**不发邮件**（D-02 已冻结；Agent 邮箱本身 `not_bound`）：`notify.py --session <时段> --status <PASS|DEGRADED|FAIL>` 只负责叫醒。
+- 手机侧**不发邮件**（D-02 已冻结；Agent 邮箱本身 `not_bound`）。推送由 `run_daily report`
+  **自动完成**（PASS/DEGRADED 都发，FAIL 走 `timeSensitive` 告警），不需要 agent 手动调 `notify.py`；
+  要带人话摘要加 `--notify-summary`，排错加 `--no-notify`。`notify.py` 只用于手动补发或单独告警。
+  App 已实测可渲染报告 HTML（RK-01 关闭），所以通知只叫醒、全文在 App 内看。
 - 口头总结：Regime、机械覆盖率、综合建议、Top3 多空理由、买入区间、核心风险。
 
 ## 快速诊断（轻量模式）

@@ -106,6 +106,28 @@ def html_path_for(report_root: Path, date: str, session: str, override: str | No
 
 
 # ---------------------------------------------------------------------------
+# 推送：机械接线，不依赖 agent 记得调用（PRD FR-03/FR-05）
+#   告警走 notify.alert（timeSensitive，突破静默）；正常交付走 notify_report。
+#   --no-notify 可关；测试环境由 notify._suppressed() 自动闭嘴，不会刷屏。
+def _notify(args, session: str, status: str, coverage: float = 0.0,
+            reason: str = "", problems: int = 0, summary: str = "") -> None:
+    if getattr(args, "no_notify", False):
+        print("[run_daily] 通知：已跳过（--no-notify）")
+        return
+    try:
+        import notify
+        if status == "FAIL":
+            ok, msg = notify.alert(session, reason or "批次失败", summary)
+        else:
+            ok, msg = notify.notify_report(
+                session, coverage, degraded=(status != "PASS"),
+                summary=summary, problems=problems)
+        print(f"[run_daily] 通知：{msg}")
+    except Exception as e:                      # 推送失败绝不影响出报告
+        print(f"[run_daily] 通知异常（不影响主流程）：{type(e).__name__}: {e}")
+
+
+# ---------------------------------------------------------------------------
 def do_fetch(args):
     report_root, holdings = resolve_paths(args)
     print("=" * 64)
@@ -120,6 +142,7 @@ def do_fetch(args):
     rc = subprocess.run(cmd).returncode
     if rc != 0:
         print("[run_daily][error] fetch_data.py 执行失败")
+        _notify(args, args.session, "FAIL", reason="取证脚本失败", summary="fetch_data.py 返回非 0，报告未能开始。")
         sys.exit(EXIT_ENV)
     return do_gate(args)
 
@@ -442,6 +465,8 @@ def do_report(args):
             print(f"  · {p}")
         print(f"[run_daily] 签名 = DEGRADED，退出码 {EXIT_RP_FAIL}（可被监控抓取）\n  {out_html}")
         print("=" * 64)
+        _notify(args, args.session, "DEGRADED", coverage=coverage,
+                reason="report_gate", problems=len(rp["problems"]))
         return EXIT_RP_FAIL
 
     # ④ 双门 PASS：校准覆盖率横幅 → 裸证据 ID 渲染为弱化徽标 → 写入门禁签名
@@ -462,6 +487,8 @@ def do_report(args):
         print(f"[run_daily][降级交付] 报告门 PASS，证据门未过 → 签名 DEGRADED，"
               f"退出码 {EXIT_EV_FAIL}\n  {out_html}")
         print("=" * 64)
+        _notify(args, args.session, "DEGRADED", coverage=coverage,
+                reason="evidence_gate", problems=len(ev["problems"]))
         return EXIT_EV_FAIL
 
     _inject_signature(out_html, args.date, args.session, coverage)
@@ -473,6 +500,8 @@ def do_report(args):
     print(f"[run_daily] 已写入门禁签名（引擎 v{_ver} 构建 {_build}），唯一允许交付的产物：\n  {out_html}")
     print("[run_daily] 存档 .md 与 evidence/*.json 不交付；present_files 只发该 HTML。")
     print("=" * 64)
+    _notify(args, args.session, "PASS", coverage=coverage,
+            summary=getattr(args, "notify_summary", "") or "")
     return EXIT_PASS
 
 
@@ -500,12 +529,16 @@ def main():
         p.add_argument("--allow-degraded", action="store_true")
         p.add_argument("--brief", default="",
                        help="本次只做简列的关注标的，逗号分隔（临时降级；缺省=全部深度分析）")
+        p.add_argument("--no-notify", action="store_true",
+                       help="本次不发 Bark 通知（排错/回放时用）")
         if name == "fetch":
             p.add_argument("--no-network", action="store_true")
         if name == "report":
             p.add_argument("--builder", help="当天报告生成脚本路径（兼容旧模式）")
             p.add_argument("--data", help="紧凑卡片数据JSON，走通用渲染器 render_report.py")
             p.add_argument("--html", help="产物 HTML 路径（默认按命名规则）")
+            p.add_argument("--notify-summary", default="",
+                           help="推送到手机的一句话摘要（今日动作/到价提醒，≤2 句）")
     args = ap.parse_args()
     if getattr(args, "brief", ""):
         os.environ["DAILY_BRIEF_TICKERS"] = args.brief

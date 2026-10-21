@@ -65,7 +65,7 @@ python scripts/setup_local.py
 # 2) 填自己的持仓与关注库
 #    编辑 config/holdings.md、config/watchlist.md（格式见 examples/）
 
-# 3) 自检：语法 + 版本指纹 + 123 项回归测试
+# 3) 自检：语法 + 版本指纹 + 131 项回归测试
 python scripts/release.py doctor
 
 # 4) 取证（网络可用时去掉 --no-network）
@@ -88,7 +88,7 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
 | `scripts/` | 12 个核心脚本：取证 / 门禁 / 渲染 / 编排 / 通知 / 发布自检，外加 `adapters/` 数据源适配层 | ✅ |
 | `references/` | 方法论与规范（分析流程、辩论协议、证据分级、HTML 规范…） | ✅ |
 | `assets/` | 样式、免责、data.json 填写规范、三个时段的 prompt 模板 | ✅ |
-| `tests/` | 123 项回归测试（含跨模块口径一致性测试） | ✅ |
+| `tests/` | 131 项回归测试（含跨模块口径一致性测试） | ✅ |
 | `examples/` | 持仓/关注库的空模板 | ✅ |
 | `config/` | **你的真实持仓、关注库、送达配置** | ❌ 不入库 |
 | `data/` | 每日报告与证据 JSON（含成本、账户信息） | ❌ 不入库 |
@@ -106,14 +106,24 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
 - **涨红跌绿**（A 股习惯）：涨/多方红，跌/空方绿。
 - 顶部有锚点索引，25 张卡不用一路滑。
 
-**手机接收（v2.6.0）**：Bark 负责叫醒，正文只放 3–5 行摘要（结论/动作/到价/缺口），
-全文点通知里的链接去 App 看——通知栏放不下整份报告，硬塞会把结论截断。
+**手机接收（v2.6.1）**：Bark 负责叫醒，正文只放 3–5 行摘要（结论/动作/到价/缺口），
+全文点开 App 看——**App 已实测能直接渲染报告 HTML**，所以不需要上传到任何空间。
 
-配置 `config/notify.json`（复制 `config/notify.example.json`，填 `bark_key` 即生效）：
+配置 `config/notify.json`（复制 `config/notify.example.json`，填 `bark_key` 即生效）后，
+**`run_daily report` 会自动推送**，不用手动跑：
 
 ```bash
-python scripts/notify.py --session post --status PASS --coverage 87.5 --summary "今日动作：持有为主"
-python scripts/notify.py --session post --status FAIL --reason "取数全失败"   # 告警，不受静默时段限制
+# 正常出报告：PASS/DEGRADED 自动发通知，可带一句人话摘要
+python scripts/run_daily.py report --session post --data data.json --notify-summary "今日动作：持有为主"
+
+# 排错/回放时关掉推送
+python scripts/run_daily.py report --session post --data data.json --no-notify
+```
+
+手动补发或单独告警才直接用 `notify.py`：
+
+```bash
+python scripts/notify.py --session post --status FAIL --reason "取数全失败"   # 不受静默时段限制
 ```
 
 邮件通道已冻结（不再依赖 Agent 邮箱）。个人微信无开放接口，只能手动转发。

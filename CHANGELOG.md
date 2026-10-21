@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.6.1 · 手机侧送达打通（2026-10-22）
+
+### 验证结论
+- **App 内可直接渲染报告 HTML**（卡片/折叠/锚点目录正常），PRD 最高风险项 **RK-01 关闭**，
+  A4「独立站点」备选不需要启用。
+- 实现比原设计更轻：**不必先上传 Library** —— `present_files` 的产物在 App 任务详情里就是
+  原生渲染的卡片，Bark 只负责叫醒。`read_url_base` 保持留空，少一个上传失败点、少一次数据出本机。
+
+### 新增
+- **推送改为脚本机械接线**：`run_daily report` 在三个终态自动发通知——
+  PASS / DEGRADED 走 `notify_report`，取证脚本失败走 `alert`（`timeSensitive`，突破静默）。
+  之前完全依赖 agent 记得调用 `notify.py`，模型漏一次就等于没有告警，PRD G3「告警 ≤30 分钟」形同虚设。
+- `run_daily report --notify-summary "…"`：把 agent 的一句话摘要塞进通知正文。
+- `run_daily {fetch,gate,report} --no-notify`：排错/回放时关推送。
+- `notify._suppressed()`：跑单元测试时自动闭嘴（否则测试会大量走失败路径，把手机刷屏），
+  另可用 `DAILY_NO_NOTIFY=1` 显式抑制。
+- `tests/test_notify.py`（8 条）：抑制开关、`--no-notify`、PASS/DEGRADED/FAIL 分流、推送异常不影响出报告。
+
+### 变更
+- 三份 `assets/workbuddy-prompts/*.md` 删除「手动跑 notify.py」步骤，改为「report 已自动推送」，
+  避免重复推送。
+- `config/notify.json` 已配置真实 `bark_key`（该文件不入库）；实测 PASS 与 FAIL 两条通知均收到。
+
+### 测试
+- 123 → **131** 项全绿。
+
 ## v2.6.0 · 数据源适配层 + 降级交付（2026-10-22）
 
 ### 语义变更（重要，接的人先看这条）

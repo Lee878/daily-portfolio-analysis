@@ -1,24 +1,24 @@
 {
-  "version": "2.6.0",
-  "released_at": "2026-10-22T01:58:11+08:00",
+  "version": "2.6.1",
+  "released_at": "2026-10-22T07:43:23+08:00",
   "minimum_tests": 110,
-  "file_count": 44,
+  "file_count": 45,
   "files": {
     "CHANGELOG.md": {
-      "sha256": "9f1406cef5dd4f9b0b5f1eac75888e77d14d89be2e080864a0dbda9633fe793d",
-      "bytes": 24299
+      "sha256": "5cf59f4e7b3a8a7ab7f0d6aa8212fdb710b56c58a99211517076265d0f63051f",
+      "bytes": 25965
     },
     "LICENSE": {
       "sha256": "5fc73cb37992e654fb0a15a064d023b0805d51b85ca15e65238c8d8af6d882c8",
       "bytes": 1191
     },
     "README.md": {
-      "sha256": "d45bb519640c1ba43a1a0707662fce92d38d9bd657592bb63935d061b99935f0",
-      "bytes": 8942
+      "sha256": "9703590930c9957e11f66abd81a38b2dbb93f5349b50251f5f9dcdf5e13a18ea",
+      "bytes": 9264
     },
     "SKILL.md": {
-      "sha256": "a710d20d0221ad69d44df061dad27fd3a4d6fdaa9bfffd49b11714bd3f5de284",
-      "bytes": 30788
+      "sha256": "71c8e5dc79a63f5aec447df2cbc14f3a3db2d9729ac3698a834e33d3fe818000",
+      "bytes": 31089
     },
     "assets/data-schema.md": {
       "sha256": "f8bd70bf654005c9e112719101b1732934494e0c58a511f943f1fc0f9f702d21",
@@ -37,19 +37,19 @@
       "bytes": 9232
     },
     "assets/workbuddy-prompts/noon.md": {
-      "sha256": "94da319fe7a8b94ed12ad10f87430c1493c5a37a712cdbb88ff74925f29dcb9a",
-      "bytes": 6234
+      "sha256": "972ad97f5e24c471429bb4253925a1cf0d1b0d8dfd5d6f6451be651775f0dd3e",
+      "bytes": 6002
     },
     "assets/workbuddy-prompts/post.md": {
-      "sha256": "733aade9d88a08a44f639ca449ab819e2e966e77a7537fa33dcefe28eff21a54",
-      "bytes": 6250
+      "sha256": "bb665a3cae91462099431378ecf3ba7ade682c665dec6a83303cca0d84076fa3",
+      "bytes": 6085
     },
     "assets/workbuddy-prompts/pre.md": {
-      "sha256": "763caa95a92f82d77ed994e55c80040560351fef1ec88928589d123b9e1ed949",
-      "bytes": 6473
+      "sha256": "d5792e6e538c2efd4f29943fbbe2f2520dbe67614e4373a37bbd1c219041bd0d",
+      "bytes": 6224
     },
     "pyproject.toml": {
-      "sha256": "c94aea82a59a4a10cd102e23d49f16af30ad4767c2b7921e2fdb6154649650c6",
+      "sha256": "d5cf6e526333be14adb779a360b79a0dd5dc3e6ad01a5c3c10a4ebc6a91130db",
       "bytes": 1367
     },
     "references/agent-roles.md": {
@@ -117,8 +117,8 @@
       "bytes": 5126
     },
     "scripts/notify.py": {
-      "sha256": "ed4d5e5f39d3ffcec27fabd12b2b6b202de89fde213e3dd24b16025d835fc3a8",
-      "bytes": 6622
+      "sha256": "2c4e2c7306c8df4ca30b1a9e327a808c126386ffb6606f149e577e047c728913",
+      "bytes": 7219
     },
     "scripts/paths.py": {
       "sha256": "0b49a9e57450dee4bd6da85937a99d7b32b55529ad7e848d20186c9c7def70b4",
@@ -141,8 +141,8 @@
       "bytes": 5910
     },
     "scripts/run_daily.py": {
-      "sha256": "a1d0ca413d15951001031620c678ced7fdefb6b95d16870125f196619a58f602",
-      "bytes": 24909
+      "sha256": "3fa6b9f39e7da2625a6a315e75d483972dd6df8a4fbed4b5c7ddf9965a8be749",
+      "bytes": 26927
     },
     "scripts/setup_local.py": {
       "sha256": "f7e80f85492502abc2ef5a94fed1a0ddc1f0cd2101f39162633de68a4d841ba3",
@@ -163,6 +163,10 @@
     "tests/test_gate.py": {
       "sha256": "d1aa08ee2dd2871c65f839d1f62697dee8624a3b6b87c708f8eb54caecb90a9c",
       "bytes": 33377
+    },
+    "tests/test_notify.py": {
+      "sha256": "8394a81b356787c5f2a245c7bdfd55b304a769cef28a710c7f327e4ef4401bf7",
+      "bytes": 3842
     },
     "tests/test_parity.py": {
       "sha256": "8724c61bba3956a906f9f424024f3dcfa4c11ab85e8fb2d074a53a065f3702bc",

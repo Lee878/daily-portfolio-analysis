@@ -50,10 +50,9 @@
 5. **交付（三层）**
    - 桌面：`present_files` 打开带签名的 HTML（唯一主交付，无签名禁止交付）。
    - 手机：**Bark 通知 + App 阅读**（D-01/D-02 已定；邮件通道冻结，不要发邮件）。
-     跑 `python "{{REPO_DIR}}/scripts/notify.py" --session noon --status PASS --coverage <覆盖率> --summary "<今日动作/到价提醒，≤2 句>"`；
-     午间脚本自动用 `level=passive`（不响铃，不打扰）；报告门/证据门没过就把 `--status` 换成 `DEGRADED` 并加 `--problems <缺口数>`。
-     若 `config/notify.json` 的 `bark_key` 为空，**不要伪造推送**，在总结里说一句"Bark 未配置，本盘仅桌面交付"。
-     通知发送失败不影响本地交付，如实说明失败原因。
+     `run_daily report` **已自动推送**（午间自动 `level=passive` 不响铃），不要再手动跑 `notify.py`。
+     想带人话摘要就加 `--notify-summary "今日动作/到价提醒，≤2 句"`；排错时加 `--no-notify`。
+     推送失败不影响本地交付，如实说明原因即可。
    - 微信：个人微信无开放接口，不自动发；需要时由用户把 HTML 拖进「文件传输助手」。
    - 存档：`.md` 与 `evidence/*.json` 留在 `data/daily-reports/`，不发送、不删除。
 

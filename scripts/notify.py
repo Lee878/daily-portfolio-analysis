@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -56,9 +57,26 @@ def _in_quiet_hours(conf: dict, now: dt.datetime | None = None) -> bool:
     return start <= cur or cur < end if start > end else (start <= cur < end)
 
 
+def _suppressed() -> str:
+    """返回非空字符串表示当前不该真发推送。
+
+    两个场景必须闭嘴：
+    1. 单元测试——测试会大量走失败路径，真发会把手机刷屏；
+    2. 批处理/离线回放——设 `DAILY_NO_NOTIFY=1` 即可。
+    """
+    if os.environ.get("DAILY_NO_NOTIFY", "").strip().lower() in ("1", "true", "yes", "on"):
+        return "已抑制（DAILY_NO_NOTIFY）"
+    if "unittest" in sys.modules:
+        return "已抑制（单元测试环境）"
+    return ""
+
+
 def send(title: str, body: str, subtitle: str = "", url: str = "",
          level: str = "active", sound: str = "", force: bool = False) -> tuple[bool, str]:
     """发一条 Bark 通知。返回 (是否发出, 说明)。失败绝不抛异常打断主流程。"""
+    sup = _suppressed()
+    if sup:
+        return False, sup
     conf = load_conf()
     if not conf.get("enabled"):
         return False, "未启用（config/notify.json 里 enabled=false）"
