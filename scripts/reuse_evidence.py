@@ -19,6 +19,7 @@ pre 建当日全量底库；noon/post 只补"当日增量"（实时行情、当�
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 # 慢变量字段（当日基本不变，可复用）；行情/技术波动字段不在此列

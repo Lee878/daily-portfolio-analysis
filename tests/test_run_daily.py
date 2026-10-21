@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import gate_check as gc  # noqa: E402
-import run_daily as rd   # noqa: E402
+import run_daily as rd  # noqa: E402
 
 HOLDINGS_MD = """# 持仓档案
 ## 美股持仓

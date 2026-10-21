@@ -28,7 +28,6 @@ import argparse
 import datetime as dt
 import json
 import math
-import os
 import re
 import sys
 import traceback
@@ -278,6 +277,7 @@ def parse_holdings(md_text: str):
                 "quantity": quantity,
                 "cost": cost,
                 "last": last,
+                "amount": amount,
             })
         except Exception:
             continue
@@ -717,11 +717,15 @@ def build_evidence(holding, session, fetcher, date_str, brief=None):
         for p in raw:
             points.append(p)
             if p["field"] == "price_last":
-                q = dict(p); q["field"] = "nav_latest"
-                q["label"] = FIELD_LABELS["nav_latest"]; points.append(q)
+                q = dict(p)
+                q["field"] = "nav_latest"
+                q["label"] = FIELD_LABELS["nav_latest"]
+                points.append(q)
             if p["field"] == "day_change_pct":
-                q = dict(p); q["field"] = "nav_change_pct"
-                q["label"] = FIELD_LABELS["nav_change_pct"]; points.append(q)
+                q = dict(p)
+                q["field"] = "nav_change_pct"
+                q["label"] = FIELD_LABELS["nav_change_pct"]
+                points.append(q)
         if instrument == "LEVERAGED_ETP":
             gaps.append("杠杆/反向 ETP 无个股基本面：fund_scale_change 填产品规模、"
                         "top_holdings 填跟踪标的与杠杆倍数，ROE/营收增速等不适用")
@@ -947,7 +951,7 @@ def main():
         for e in dict.fromkeys(fetcher.errors):
             print(f"  · {e}")
 
-    print(f"\n[next] 1) agent 补证（新闻/财报/产业链/宏观，写回上述 JSON）")
+    print("\n[next] 1) agent 补证（新闻/财报/产业链/宏观，写回上述 JSON）")
     print(f"       2) python gate_check.py --report-root {report_root} "
           f"--date {args.date} --session {args.session} --stage evidence")
     return 0

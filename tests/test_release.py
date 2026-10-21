@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-import release as r          # noqa: E402
-import run_daily as rd      # noqa: E402
+import release as r  # noqa: E402
+import run_daily as rd  # noqa: E402
 
 KEY_FILES = [
     "SKILL.md", "README.md",

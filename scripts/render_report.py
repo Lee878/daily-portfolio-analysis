@@ -461,7 +461,8 @@ def write_recon_summary(data, out_path):
         for c in b.get("cards", []):
             if c.get("type") in ("advisory", "sgov"):
                 continue
-            clean = lambda t: re.sub(r"\[[^\]]*\]", "", t or "").strip()
+            def clean(t):
+                return re.sub(r"\[[^\]]*\]", "", t or "").strip()
             lines.append(f"- **{c.get('name','')}** 操作：{clean(c.get('act',''))}")
             if c.get("risk"):
                 lines.append(f"  - 风控：{clean(c['risk'])}")

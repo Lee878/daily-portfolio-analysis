@@ -43,7 +43,7 @@ def main():
         coverages.append(pct)
     combo = round(sum(coverages) / len(coverages) * 100)
 
-    lines = [f"# 盘前持仓报告（SIMULATED 合规样例）",
+    lines = ["# 盘前持仓报告（SIMULATED 合规样例）",
              f"数据覆盖率 {combo}%（数值由 gate_check 机械计算，禁止人工修改）",
              ""]
     for h in holdings:
@@ -52,7 +52,7 @@ def main():
         ids += [n["id"] for n in ev.get("news", [])]
         ids += [c["id"] for c in ev.get("chain_notes", [])]
         lines.append(f"## {h['name']}（{h['ticker']}）")
-        lines.append(f"**一句话结论**：持有观望，置信度中（SIMULATED）。")
+        lines.append("**一句话结论**：持有观望，置信度中（SIMULATED）。")
         lines.append("")
         lines.append("**多方**")
         lines.append(f"1. 基本面与估值具备支撑 [{ids[0]}][{ids[1]}]")
