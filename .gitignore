@@ -1,0 +1,47 @@
+# ===== 本地隐私数据：绝不入库 =====
+# 真实持仓 / 关注库 / 送达配置（含金额、券商、邮箱）
+/config/*.md
+/config/*.json
+!/config/*.example.md
+!/config/*.example.json
+
+# 每日报告与证据（含成本、账户、历史 HTML）
+/data/
+
+# 历史归档与迁移包
+/.archive/
+
+# WorkBuddy 本地工作数据（会话/记忆，非项目资产）
+/.workbuddy/
+
+# ===== 含真实持仓的预览产物：绝不入库 =====
+# 预览 HTML 与截图内嵌真实成本 / 市值 / 盈亏金额，
+# 文本可扫、PNG 二进制无法扫，只能整体排除。
+/docs/ui-preview/*.html
+/docs/ui-preview/*.png
+
+# ===== 备份文件：绝不入库 =====
+# *.bak 会被 git check-ignore 命中，但历史上已被跟踪过，须显式排除
+*.bak
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ===== 系统 / 编辑器 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+
+# ===== 本地临时 =====
+*.local.json
+*.log
