@@ -1,28 +1,28 @@
 {
-  "version": "2.9.0",
-  "released_at": "2026-10-22T16:29:46+08:00",
-  "minimum_tests": 164,
+  "version": "2.9.1",
+  "released_at": "2026-10-22T16:40:14+08:00",
+  "minimum_tests": 172,
   "eol": "lf",
-  "file_count": 64,
+  "file_count": 66,
   "files": {
     "CHANGELOG.md": {
-      "sha256": "0c1495c0e43604caa68585ec31ff517eac81823c976cc5658b219ff390b44524",
-      "bytes": 41056
+      "sha256": "64fbece777f5cad47e306c5b63dc8b6bf8287139d1c567704e23eaa02040e110",
+      "bytes": 44151
     },
     "LICENSE": {
       "sha256": "5fc73cb37992e654fb0a15a064d023b0805d51b85ca15e65238c8d8af6d882c8",
       "bytes": 1191
     },
     "README.md": {
-      "sha256": "8c75bc72981bdc6b2876bcb5975e5da12a7f2ac55c1e9e8ebb4e98b66247d0e6",
+      "sha256": "453edc9d03bd54c05ebb693aaa26ecceabef0baf1d138d6100e5bd337ba889c1",
       "bytes": 9885
     },
     "SKILL.md": {
-      "sha256": "2049fa594610d19656ef675fffc1d8b4551ff223e092d6ded29e96b288d86521",
+      "sha256": "047b17c78ac25b60bcadd5e9ee0eab1c8052a2809250b1bd319b37cee0954ce0",
       "bytes": 31376
     },
     "VERSION.json": {
-      "sha256": "02aeefbb59b4b178ad5a670a3a4e42a9dbae4c7a8ea634209e266c169a50905b",
+      "sha256": "a74644666811106a1e733e82919fafcb850e9f82e2f08edea0dc7ac4cf01f6d5",
       "bytes": 126
     },
     "assets/data-schema.md": {
@@ -46,12 +46,12 @@
       "bytes": 5943
     },
     "assets/workbuddy-prompts/post.md": {
-      "sha256": "e9fd3050cc5b6ff825240eb10bf5550dc0905b3fff7875b2cd5a2edc6f1d1ce3",
-      "bytes": 7167
+      "sha256": "f0f75398d05dfd58b49b009df64bac01555d701c560fece6351537acd59fe32f",
+      "bytes": 7827
     },
     "assets/workbuddy-prompts/pre.md": {
-      "sha256": "c1fbd6ff910fe11fa5935087ceec3bcf6d6e25cc6894722508cd56881b701aad",
-      "bytes": 7306
+      "sha256": "5e155ebc0f97dac6daa865eac39448998de13f209124fb358e71ecf090472574",
+      "bytes": 7966
     },
     "config/data-sources.example.json": {
       "sha256": "8501ee9f53d683b249a6173f83d6c6384b22da8ccf49dd380ddf882cc6d13e0f",
@@ -82,7 +82,7 @@
       "bytes": 269
     },
     "pyproject.toml": {
-      "sha256": "73a6d6fa6e236964bcc4fb3d1824cac7b952933b38a841f79e545f6368d247c6",
+      "sha256": "db60315e5f6c358b729b3b3c45881dc369bd695d2b210495392519899accb57c",
       "bytes": 1317
     },
     "references/agent-roles.md": {
@@ -161,6 +161,10 @@
       "sha256": "a3902986423bf91e6e532c9ffac194cfbb3df17fe746bfa371410626de963314",
       "bytes": 6159
     },
+    "scripts/debate_input.py": {
+      "sha256": "baee5a2f5ebeabb22cba8c52b0097977d24c20232d4b1b6af196052fbd78c706",
+      "bytes": 4579
+    },
     "scripts/derive_indicators.py": {
       "sha256": "3969d92bbd86e91b9f4d1ddbd9a8dbb3f6973b069abe07b513c6fcba11fa8203",
       "bytes": 16895
@@ -194,7 +198,7 @@
       "bytes": 5187
     },
     "scripts/release.py": {
-      "sha256": "c4fea73c5dc6f175af9cec18cd2925ec7537f5f59bb2f8c1b07cbd1c175177a1",
+      "sha256": "95f01b91752e321b6c6117c9a047afef9cb04a608fc8062f4daf85a268fd2757",
       "bytes": 24902
     },
     "scripts/render_report.py": {
@@ -224,6 +228,10 @@
     "tests/test_adapters.py": {
       "sha256": "45d73aba226a1dce0a32862e62524f32cd7a2ceb0af139d72decdb8d842ea51f",
       "bytes": 7518
+    },
+    "tests/test_debate_input.py": {
+      "sha256": "864bb2713a419fae5c2a91b61197b2a2c7783e8b2ccb4ace19c1e434ec780411",
+      "bytes": 3267
     },
     "tests/test_derive.py": {
       "sha256": "74f414ff60771139d0c83ffb7e55822375a7685392a9cee91d7dc38d31266b70",

@@ -65,7 +65,7 @@ python scripts/setup_local.py
 # 2) 填自己的持仓与关注库
 #    编辑 config/holdings.md、config/watchlist.md（格式见 examples/）
 
-# 3) 自检：语法 + 版本指纹 + 164 项回归测试
+# 3) 自检：语法 + 版本指纹 + 172 项回归测试
 python scripts/release.py doctor
 
 # 4) 取证（网络可用时去掉 --no-network）
@@ -85,10 +85,10 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
 | 目录 | 放什么 | 是否入库 |
 |---|---|---|
 | `SKILL.md` | 引擎标准（七步法、门禁口径、输出规范），**唯一权威** | ✅ |
-| `scripts/` | 13 个核心脚本：取证 / 门禁 / 渲染 / 编排 / 通知 / 发布自检，外加 `adapters/` 数据源适配层 | ✅ |
+| `scripts/` | 14 个核心脚本：取证 / 门禁 / 渲染 / 编排 / 通知 / 发布自检，外加 `adapters/` 数据源适配层 | ✅ |
 | `references/` | 方法论与规范（分析流程、辩论协议、证据分级、HTML 规范…） | ✅ |
 | `assets/` | 样式、免责、data.json 填写规范、三个时段的 prompt 模板 | ✅ |
-| `tests/` | 164 项回归测试（含跨模块口径一致性测试） | ✅ |
+| `tests/` | 172 项回归测试（含跨模块口径一致性测试） | ✅ |
 | `examples/` | 持仓/关注库的空模板 | ✅ |
 | `config/` | **你的真实持仓、关注库、送达配置** | ❌ 不入库 |
 | `data/` | 每日报告与证据 JSON（含成本、账户信息） | ❌ 不入库 |

@@ -38,8 +38,14 @@
 
 3. **四层分析 + 填 data.json**
    动手前先 Read `{{REPO_DIR}}/config/debate.json`；读不到就按模板 `{{REPO_DIR}}/config/debate.example.json` 走 **isolated**。
+   **先净化输入（不跑这步就不许开子代理）**：
+   `python "{{REPO_DIR}}/scripts/debate_input.py" --evidence <该标的证据JSON> --out "{{REPO_DIR}}/data/daily-reports/debate-input"`
+   它会剥掉 holding 里的 cost 与 quantity 字段、account（券商名）、planned，只留行情、新闻、产业链与缺口。
+   子代理**只允许读净化后的 `<ticker>.debate.json`**，**禁止读 `evidence/` 原件**
+   —— 原件写着成本和券商名，模型一看就知道这是你持有的标的，结论会系统性偏向"继续持有"。
+   跑完用 `--verify <目录>` 复核一遍，exit 0 才能进入下一步。
    **isolated（盘前盘后默认，标的 ≥8 只）——每只标的分别开两个独立子代理**：
-   - 子代理 A（多方）：只给这只标的的证据 JSON 路径 + 多头角色指令。
+   - 子代理 A（多方）：只给这只标的**净化后**的文件路径 + 多头角色指令。
      **不提你已经持有、成本多少、浮盈亏多少**；也不告诉它后面还有空方。
    - 子代理 B（空方）：同样只给证据 + 空头角色指令。**绝不把 A 的输出给它**，
      也不给它其他标的的任何内容（否则会横向锚定，比如前一只刚论证行业景气向上，这只的空方就不敢唱反调）。
