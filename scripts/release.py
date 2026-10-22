@@ -63,7 +63,7 @@ def managed_files():
     items += [f"config/{p.name}"
               for p in sorted((ENG / "config").glob("*.example.*"))]
     # 版本说明文档随技能分发：用户在装好的技能里能直接读到安装/验证/主题说明
-    items += ["docs/INSTALL-v2.8.0.md"]
+    items += ["docs/INSTALL.md"]
     items += ["VERSION.json"]
     out = []
     for i in sorted(set(items)):
@@ -386,7 +386,7 @@ _PKG_PRIVATE_PATTERNS = (
 _PKG_EXPECT = ("scripts/adapters/", "examples/", "config/data-sources.example.json",
                "config/notify.example.json", "VERSION.json", "MANIFEST.json",
                "tests/fixtures/", "scripts/fingerprint.py",
-               "docs/INSTALL-v2.8.0.md")
+               "docs/INSTALL.md")
 
 
 # 随包分发但不参与自哈希的文件。MANIFEST.json 的内容包含所有文件的 sha256，

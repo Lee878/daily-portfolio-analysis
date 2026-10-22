@@ -4,7 +4,7 @@ description: "深度持仓分析引擎。读取持仓档案，对每只持仓标
 description_zh: "深度持仓分析引擎：把每日持仓复盘做成带机械门禁的流程。取证不达标脚本直接阻断辩论，论点不挂证据 ID 报告门禁止交付，所有数字可追溯到证据文件。输出盘前 / 午间 / 盘后三时段 HTML 报告，深色默认、可切浅色。"
 description_en: "Evidence-gated daily portfolio analysis. Every number is traceable to an evidence file; the gates block delivery when sourcing falls short, so output quality does not decay over time. Produces pre-market, midday and post-market HTML reports with a dark-first, light-switchable theme."
 author: Lee878
-version: 2.8.0
+version: 2.9.0
 metadata:
   license: MIT
   requires-python: ">=3.10"
