@@ -1,0 +1,387 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#0a0d12"><title>A · Terminal 深色</title><style>/* ==========================================================================
+   A · TERMINAL —— 深色结构化
+   设计意图：把"颜色"从装饰降级为信号。
+   - 涨跌用色，动作只用一根 3px 左条，其余一切靠层级与留白
+   - 分隔线用 rgba 发丝线，不用 border 边框，消除"盒子套盒子"
+   - 数字一律 tabular-nums，保证纵向对齐
+   - 折叠区统一成一行文字按钮，不再是灰色大块
+   ========================================================================== */
+
+:root{
+  --bg:#0a0d12;
+  --s1:#12161e;
+  --s2:#0e121a;
+  --line:rgba(255,255,255,.07);
+  --fg:#e9eef6;
+  --fg2:#98a4b4;
+  --fg3:#7a8695;      /* 辅助正文 4.9:1 过 AA */
+  --fg4:#5d6875;      /* 纯装饰（计数、展开符） */
+  --rise:#ff5a5a;
+  --fall:#2ecc71;
+  --accent:#4d9fff;
+  --warn:#f0b429;
+  --r:14px;
+  --mono:ui-monospace,Menlo,Consolas,'SF Mono',monospace;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(900px 340px at 50% -140px,rgba(77,159,255,.08),transparent 72%);
+  color:var(--fg);
+  font:15.5px/1.72 -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',
+       'HarmonyOS Sans','Noto Sans CJK SC','Microsoft YaHei',sans-serif;
+  padding:0 0 64px;
+  -webkit-font-smoothing:antialiased;
+  font-feature-settings:"tnum" 0;
+}
+.wrap{max-width:800px;margin:0 auto;padding:0 16px}
+
+.rise{color:var(--rise)}
+.fall{color:var(--fall)}
+
+/* ---------- 首屏 ---------- */
+.hero{padding:28px 0 6px}
+.hmeta{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--fg3)}
+.hdate{color:var(--fg2);font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.hdot{color:var(--fg4)}
+.cov{
+  margin-left:auto;font-size:11.5px;color:var(--fg2);
+  background:rgba(255,255,255,.045);border:1px solid var(--line);
+  padding:2px 9px;border-radius:20px;font-variant-numeric:tabular-nums;
+}
+.hero h1{
+  font-size:26px;line-height:1.32;font-weight:680;letter-spacing:-.015em;
+  margin:11px 0 0;
+}
+.regime{
+  margin-top:12px;font-size:15.5px;line-height:1.78;color:var(--fg2);
+}
+
+/* 大势：默认 3 行 + 读全文 */
+.rfold{margin-top:12px}
+.rfold>summary{list-style:none;cursor:pointer}
+.rfold>summary::-webkit-details-marker{display:none}
+.regime.clamp{
+  margin:0;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
+  overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 55%,transparent 100%);
+}
+.rfold[open] .regime.clamp,.rfold[open] .rmore{display:none}
+.regime.full{display:none;margin:0}
+.rfold[open] .regime.full{display:block}
+.rmore{
+  display:inline-block;margin-top:6px;font-size:12px;color:var(--accent);
+  letter-spacing:.04em;
+}
+.rmore::after{content:" ↓"}
+
+/* 指数网格：1px gap + 深底 = 发丝线分隔，无需 border */
+.stats{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:1px;
+  background:var(--line);border-radius:var(--r);overflow:hidden;
+  margin:22px 0 0;
+}
+.stat{background:var(--s2);padding:12px 13px;display:flex;flex-direction:column;gap:2px}
+.srow{display:flex;align-items:baseline;gap:9px;min-width:0}
+.sv{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.012em;line-height:1.3;flex:0 0 auto}
+.sd{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.3;margin-left:auto}
+.sk{
+  font-size:11px;color:var(--fg3);margin-top:1px;line-height:1.45;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* ---------- 今日动作横滑 ---------- */
+.actionbar{
+  margin:22px -16px 0;padding:12px 16px 11px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:rgba(255,255,255,.012);
+}
+.ablab{font-size:10.5px;color:var(--fg3);letter-spacing:.12em;margin-bottom:8px}
+.ablist{display:flex;gap:7px;list-style:none;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.ablist::-webkit-scrollbar{display:none}
+.ablist li{
+  flex:0 0 auto;display:flex;align-items:center;gap:7px;
+  background:var(--s1);border-radius:9px;padding:7px 11px 7px 10px;font-size:13px;
+}
+.ablist li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--fg4);flex:0 0 auto}
+.ablist b{font-weight:600;letter-spacing:-.005em}
+.ablist span{font-size:11.5px;color:var(--fg3)}
+.a-add::before{background:var(--rise)!important}
+.a-cut::before{background:var(--fall)!important}
+.a-watch::before{background:var(--warn)!important}
+.a-hold::before{background:#39424f!important}
+
+/* ---------- 区块标题 ---------- */
+h2{
+  font-size:13.5px;font-weight:600;letter-spacing:.06em;color:var(--fg2);
+  margin:38px 0 13px;padding-bottom:10px;border-bottom:1px solid var(--line);
+}
+
+/* ---------- 区块目录 ---------- */
+.toc{
+  display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;
+  margin:14px -16px 0;padding:11px 16px;border-bottom:1px solid var(--line);
+}
+.toc::-webkit-scrollbar{display:none}
+.toc a{
+  flex:0 0 auto;font-size:12.5px;color:var(--fg2);text-decoration:none;
+  background:var(--s1);border:1px solid var(--line);border-radius:8px;
+  padding:9px 12px;min-height:42px;display:flex;align-items:center;
+  max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.toc a:active{background:var(--s2);color:var(--fg)}
+
+/* ---------- 卡片 ---------- */
+.card{
+  position:relative;background:var(--s1);border-radius:var(--r);
+  padding:16px 16px 14px;margin-bottom:10px;overflow:hidden;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+}
+.card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:transparent;transition:background .2s;
+}
+.act-add::before{background:var(--rise)}
+.act-cut::before{background:var(--fall)}
+.act-watch::before{background:var(--warn)}
+.act-hold::before{background:rgba(255,255,255,.055)}
+
+.chead{display:flex;align-items:flex-start;gap:12px}
+.cl{flex:1 1 auto;min-width:0}
+.chead h3{font-size:17.5px;font-weight:660;line-height:1.32;letter-spacing:-.012em}
+.cc{
+  display:block;font-size:12px;color:var(--fg3);margin-top:4px;
+  font-variant-numeric:tabular-nums;line-height:1.5;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.cr{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto}
+.chg{font-size:14.5px;font-weight:660;font-variant-numeric:tabular-nums;letter-spacing:-.012em}
+.act{
+  font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:6px;
+  background:rgba(255,255,255,.055);color:var(--fg2);white-space:nowrap;
+}
+.act.add{background:rgba(255,90,90,.15);color:var(--rise)}
+.act.cut{background:rgba(46,204,113,.15);color:var(--fall)}
+.act.watch{background:rgba(240,180,41,.14);color:var(--warn)}
+.act.hold{background:rgba(255,255,255,.05);color:var(--fg3)}
+
+/* 三格数据条：成本 / 现价 / 浮盈 */
+.dbar{
+  display:flex;margin:14px 0 4px;background:var(--s2);
+  border-radius:10px;padding:11px 0;
+}
+.dcell{flex:1;text-align:center;position:relative;padding:0 6px;min-width:0}
+.dcell+.dcell::before{
+  content:"";position:absolute;left:0;top:3px;bottom:3px;width:1px;background:var(--line);
+}
+.dk{display:block;font-size:10.5px;color:var(--fg3);letter-spacing:.07em;margin-bottom:3px}
+.dv{
+  font-size:15.5px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.012em;
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* 结论：全篇最重的文字 */
+.concl{
+  font-size:15.5px;line-height:1.8;color:var(--fg);font-weight:500;
+  border-left:2px solid var(--accent);padding-left:12px;margin:14px 0 2px;
+}
+
+/* 多空：标签上色，正文保持灰，避免与涨跌色打架 */
+.bb{display:grid;gap:0;margin-top:6px}
+.side{display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--line)}
+.sl{
+  flex:0 0 auto;width:26px;font-size:11.5px;font-weight:600;letter-spacing:.06em;
+  padding-top:3px;
+}
+.side.bull .sl{color:var(--rise)}
+.side.bear .sl{color:var(--fall)}
+.side p{flex:1 1 auto;color:var(--fg2);font-size:14.5px;line-height:1.72}
+
+/* 风控 / 操作 */
+.kv{display:flex;gap:11px;padding:9px 0;border-top:1px solid var(--line);font-size:14.5px;line-height:1.72}
+.kl{
+  flex:0 0 auto;width:26px;font-size:11.5px;font-weight:600;letter-spacing:.06em;
+  color:var(--fg3);padding-top:3px;
+}
+.kv p{flex:1 1 auto;color:var(--fg2)}
+.kv.op p{color:var(--fg)}
+.kv.op .kl{color:var(--accent)}
+
+/* ---------- 折叠 ---------- */
+.folds{margin-top:8px;border-top:1px solid var(--line)}
+.fold{border-bottom:1px solid var(--line)}
+.fold:last-child{border-bottom:0}
+.fold>summary{
+  list-style:none;cursor:pointer;min-height:42px;
+  display:flex;align-items:center;gap:8px;
+  font-size:12.5px;color:var(--fg3);font-weight:500;
+}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary em{font-style:normal;font-size:11.5px;color:var(--fg4);font-variant-numeric:tabular-nums}
+.fold>summary::after{content:"＋";margin-left:auto;font-size:13px;color:var(--fg4)}
+.fold[open]>summary::after{content:"－"}
+.fold[open]>summary{color:var(--fg2)}
+.fb{padding:2px 0 13px;font-size:14px;line-height:1.75;color:var(--fg2)}
+.fb p+p{margin-top:7px}
+
+/* 证据清单 */
+.ev{list-style:none}
+.ev li{
+  display:flex;flex-wrap:wrap;align-items:center;gap:7px;
+  padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.05);font-size:12px;
+}
+.ev li:last-child{border-bottom:0}
+.eid{
+  font-family:var(--mono);font-size:11px;color:var(--fg3);
+  background:rgba(255,255,255,.04);padding:1px 5px;border-radius:4px;
+}
+.elv{font-size:10.5px;color:var(--accent);border:1px solid rgba(77,159,255,.28);padding:0 4px;border-radius:3px}
+.esrc{
+  flex:1 1 auto;min-width:0;color:var(--fg4);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.ev a{color:var(--accent);text-decoration:none;font-size:11.5px}
+
+/* ---------- 提示块 ---------- */
+.alert{
+  position:relative;background:var(--s1);border-radius:var(--r);
+  padding:14px 16px 14px 18px;margin:10px 0;font-size:14.5px;line-height:1.76;
+  overflow:hidden;color:var(--fg2);
+}
+.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.alert.warn::before{background:var(--warn)}
+.alert.buy::before{background:var(--rise)}
+.alert p+p{margin-top:8px}
+
+/* 板块雷达 */
+.sectors{display:grid;gap:10px}
+.sector{
+  position:relative;background:var(--s1);border-radius:var(--r);
+  padding:14px 16px 14px 18px;font-size:14.5px;line-height:1.75;color:var(--fg2);
+  overflow:hidden;
+}
+.sector::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--fg4)}
+.sector.s-bull::before{background:var(--rise)}
+.sector.s-bear::before{background:var(--fall)}
+.sector.s-mid::before{background:var(--warn)}
+.sector p+p{margin-top:7px}
+
+/* ---------- 表格 ---------- */
+.tbl{background:var(--s1);border-radius:var(--r);overflow:hidden;margin:10px 0}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:11px 13px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.08em;color:var(--fg3);font-weight:600;background:var(--s2)}
+tr:last-child td{border-bottom:0}
+td{color:var(--fg2)}
+
+/* ---------- 纯文字块 ---------- */
+.prose{
+  background:var(--s1);border-radius:var(--r);padding:15px 16px;
+  font-size:14.5px;line-height:1.78;color:var(--fg2);
+}
+.prose p,.alert p{position:relative;padding-left:15px}
+.prose p::before,.alert p::before{
+  content:"";position:absolute;left:2px;top:.72em;
+  width:5px;height:5px;border-radius:50%;background:var(--fg4);
+}
+.prose p+p,.alert p+p{margin-top:11px}
+
+/* 投顾 / 参考类卡片：压扁 */
+.card.ref{padding:14px 16px}
+.card.ref .note{font-size:13px;color:var(--fg3);line-height:1.7;margin-top:8px}
+
+/* ---------- 来源 / 页脚 ---------- */
+.fold.src{margin-top:34px;border-top:1px solid var(--line);border-bottom:0}
+.fold.src a{color:var(--accent);text-decoration:none;word-break:break-all}
+.foot{
+  margin-top:6px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;line-height:1.9;color:var(--fg4);
+}
+
+/* ---------- 桌面 ---------- */
+@media (min-width:720px){
+  .wrap{max-width:820px;padding:0 24px}
+  .actionbar{margin-left:-24px;margin-right:-24px;padding-left:24px;padding-right:24px}
+  .hero h1{font-size:29px}
+  .hero{padding-top:40px}
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .bb{grid-template-columns:1fr 1fr;gap:0 24px}
+  .sectors{grid-template-columns:1fr 1fr}
+  .sl,.kl{width:30px}
+}
+
+/* ---------- 手机表格堆叠 ---------- */
+@media (max-width:599px){
+  table,tbody,tr,td{display:block;width:100%}
+  thead,.tbl th{display:none}
+  tr{border-bottom:1px solid var(--line);padding:9px 0}
+  tr:last-child{border-bottom:0}
+  td{border:0;padding:4px 13px}
+  td::before{content:attr(data-l);display:block;color:var(--fg4);font-size:10.5px;letter-spacing:.06em}
+  td:empty{display:none}
+}
+
+/* ---------- 打印：全部展开，白底 ---------- */
+@media print{
+  body{background:#fff;color:#111;padding:0;background-image:none}
+  .card,.alert,.sector,.tbl,.prose{background:#fff;box-shadow:none;border:1px solid #ddd}
+  .fold>summary{display:none}
+  .fb{display:block!important}
+  .actionbar{display:none}
+}
+</style></head><body><div class="page"><div class="wrap">
+<header class="hero">
+  <div class="hmeta"><span class="hdate">2026-10-20 周二</span>
+    <span class="hdot">·</span><span class="hsess">盘后</span>
+    <span class="cov" title="机械门禁计算的字段覆盖率">覆盖 78.8%</span></div>
+  <h1>盘后总结与美股前瞻</h1>
+<details class="rfold"><summary><p class="regime clamp">今晚美股 <b>S4 回调防御向 S2 修复过渡、仍偏谨慎（反弹不追）</b>：周一（10/19）费城半导体八连阴后反弹，纳指+1.11%、标普+0.41%，但存储/光通信<b>普遍高开低走</b>——美光盘中+5.35%收+2.97%、Lumentum开+5%收+1.26%近全天低点、闪迪盘中冲1407收1371，定性为空头回补/技术性修复而非趋势反转。更关键的是 10/20 亚洲<b>不跟涨</b>：韩国KOSPI -3.73%、SK海力士-4.23%、台股-1.13%、恒指-1.32%、恒科-1.52%，AI资本开支融资担忧（CoreWeave部分债、高盛指对冲基金连续5日净卖出全球AI、惠誉警告美法英主权债务）继续发酵。A股 <b>S2 结构分化</b>：上证微涨0.12%但深成-0.14%、创业板-0.26%，人形机器人/半导体/端侧AI爆发（电子主力净流入142亿），大金融/煤炭/贵金属走弱。基调：<b>美股反弹不追、正股底仓拿住、杠杆ETP反弹优先减、约8350美元现金留到更确定位置。</b>本周为重大事件周（META、TSLA财报），下方给A/B/C情景。</p><span class="rmore">读全文</span></summary><p class="regime full">今晚美股 <b>S4 回调防御向 S2 修复过渡、仍偏谨慎（反弹不追）</b>：周一（10/19）费城半导体八连阴后反弹，纳指+1.11%、标普+0.41%，但存储/光通信<b>普遍高开低走</b>——美光盘中+5.35%收+2.97%、Lumentum开+5%收+1.26%近全天低点、闪迪盘中冲1407收1371，定性为空头回补/技术性修复而非趋势反转。更关键的是 10/20 亚洲<b>不跟涨</b>：韩国KOSPI -3.73%、SK海力士-4.23%、台股-1.13%、恒指-1.32%、恒科-1.52%，AI资本开支融资担忧（CoreWeave部分债、高盛指对冲基金连续5日净卖出全球AI、惠誉警告美法英主权债务）继续发酵。A股 <b>S2 结构分化</b>：上证微涨0.12%但深成-0.14%、创业板-0.26%，人形机器人/半导体/端侧AI爆发（电子主力净流入142亿），大金融/煤炭/贵金属走弱。基调：<b>美股反弹不追、正股底仓拿住、杠杆ETP反弹优先减、约8350美元现金留到更确定位置。</b>本周为重大事件周（META、TSLA财报），下方给A/B/C情景。</p></details>
+<div class="stats"><div class="stat"><div class="srow"><span class="sv rise">7690.73</span><span class="sd rise">+0.41%</span></div><span class="sk">标普500 10/19</span></div><div class="stat"><div class="srow"><span class="sv rise">26430.89</span><span class="sd rise">+1.11%</span></div><span class="sk">纳指 10/19</span></div><div class="stat"><div class="srow"><span class="sv fall">5552.74</span><span class="sd fall">-3.73%</span></div><span class="sk">韩国KOSPI 10/20</span></div><div class="stat"><div class="srow"><span class="sv fall">23867.74</span><span class="sd fall">-1.32%</span></div><span class="sk">恒指 10/20</span></div><div class="stat"><div class="srow"><span class="sv rise">3735.37</span><span class="sd rise">+0.12%</span></div><span class="sk">上证 10/20</span></div><div class="stat"><div class="srow"><span class="sv fall">约4115</span><span class="sd fall">连跌3日</span></div><span class="sk">现货黄金(美元/盎司)</span></div></div>
+<div class="actionbar"><div class="ablab">今日动作</div><ul class="ablist"><li class="a-hold"><b>谷歌-C</b><span>持有</span></li><li class="a-hold"><b>美光科技</b><span>持有</span></li><li class="a-hold"><b>博通</b><span>持有</span></li><li class="a-hold"><b>Lumentum</b><span>持有</span></li><li class="a-watch"><b>XL二南方海力士（2倍做多SK海力士）</b><span>关注</span></li><li class="a-hold"><b>紫金矿业</b><span>持有</span></li><li class="a-hold"><b>通富微电</b><span>持有</span></li><li class="a-hold"><b>小米集团-W</b><span>持有</span></li><li class="a-hold"><b>阿里巴巴-W</b><span>持有</span></li><li class="a-watch"><b>华安黄金ETF联接C（000217）</b><span>观察</span></li><li class="a-watch"><b>华泰柏瑞中证红利低波动ETF联接C（007467）</b><span>观察</span></li><li class="a-add"><b>易方达半导体材料设备ETF联接A（021893）</b><span>加</span></li><li class="a-add"><b>华夏恒生科技ETF联接(QDII)C（013403，定投）</b><span>加</span></li></ul></div>
+<nav class="toc" aria-label="区块目录"><a href="#sec-0" title="跨报告对账（核销今早盘前、午间与已执行操作）">跨报告对账</a><a href="#sec-1" title="我的持仓板块雷达（今晚美股优先）">我的持仓板块雷达</a><a href="#sec-2" title="今晚美股盘前（为21:30开盘服务）">今晚美股盘前</a><a href="#sec-3" title="重大事件周 · A/B/C 三情景（给概率，不预测方向）">重大事件周 · A/B/C 三情景</a><a href="#sec-4" title="美股持仓｜完整卡片（美股优先）">美股持仓｜完整卡片</a><a href="#sec-5" title="美股关注库（20:00盘前·7只，本轮全部简列；深度名单LITE/MU已转持仓）">美股关注库</a><a href="#sec-6" title="BE 已到价但先别接（接飞刀），等企稳">BE 已到价但先别接，等企稳</a><a href="#sec-7" title="A股/港股全天复盘（背景后置）">A股/港股全天复盘</a><a href="#sec-8" title="A股/港股持仓｜完整卡片">A股/港股持仓｜完整卡片</a><a href="#sec-9" title="场外基金（支付宝长期保留5只）">场外基金</a><a href="#sec-10" title="次日实战候选作战池（10/21 周三）">次日实战候选作战池</a><a href="#sec-11" title="操作建议汇总（决策权在你）">操作建议汇总</a><a href="#sec-12" title="观察名单（现在不买，触发条件再考虑）">观察名单</a><a href="#sec-13" title="我不确定的（数据缺口与限制）">我不确定的</a></nav>
+<h2 id="sec-0">跨报告对账（核销今早盘前、午间与已执行操作）</h2>
+<div class="prose"><p>较今早/中午：盘前提示“反弹不追、杠杆ETP防韩股低开、现金等回调”。今日07709因韩股SK海力士-4.23%大幅走弱（折算约-7.7%），风险提示兑现；A股半导体电子主力净流入142亿、通富收红，不追高判断成立。</p><p>持仓变动：SGOV（短债）已于10/19美股盘中卖出83股、约100.59，回笼现金约8350美元（本报告不再设独立卡片，仅列现金）；LLY（礼来）10/16@1275卖出2股早已清仓，亦不再列卡。</p><p>通富核对：券商“当日成交”显示09:33@47.69、10:10@46.88各100股，holdings已按合计600股、成本49.334记录，本报告不再重复加计，仅提示数量一致。</p><p>仍未变化的风险：半导体/存储/光模块/AI是组合最大的同方向暴露；AI硬件去杠杆与“对冲基金连续5日净卖出AI”尚未确认结束，今日亚洲不跟美股反弹，说明反弹基础不牢。</p></div>
+<h2 id="sec-1">我的持仓板块雷达（今晚美股优先）</h2>
+<div class="sectors"><div class="sector s-bear"><p>AI算力/半导体/光通信/存储（GOOG、MU、AVGO、LITE、07709、通富、半导体设备基金）｜标签：利空（超跌反弹但高开低走）｜生命周期：加速期后分歧｜SEI约55（动能转弱、高位分歧）</p><p>周一美股费半八连阴后反弹，但美光、Lumentum、闪迪均高开低走；10/20亚洲不跟涨、KOSPI-3.73%、海力士-4.23%，高盛指对冲基金连续5日净卖出全球AI。</p><p>结论：今晚不追反弹，正股底仓拿住，杠杆ETP（07709）借反弹优先减。</p></div><div class="sector s-mid"><p>互联网平台（GOOG、小米、阿里、恒生科技基金）｜标签：分化｜生命周期：修复期回调</p><p>小米逆势+1.5%、跌市获低吸；谷歌+0.96%随科技反弹但低于5/20/60日线；阿里-3.58%领跌、受AI capex融资担忧与LPR不动拖累。</p><p>结论：正股基本面未坏、估值不贵（GOOG PE17、阿里PE25），正股拿住；分歧在云AI投入回报与汽车盈利。</p></div><div class="sector s-bear"><p>有色/贵金属（紫金、黄金ETF）｜标签：利空（短期回调）｜生命周期：强化期后段</p><p>现货黄金失守4115美元、连跌3日，贵金属板块领跌，紫金A股-2.45%、H股-3.57%；但紫金系黄金板块前三季净利+123%、H1净利+68%，10/24三季报临近。</p><p>结论：高位回踩而非趋势破坏，紫金PE约11倍有底，定性拿住、不补跌；黄金ETF不追加。</p></div><div class="sector s-bull"><p>红利防御/现金（红利低波基金、约8350美元现金）｜标签：中性偏稳｜防御</p><p>市场高波动、AI板块去杠杆阶段，红利低波与美元现金提供稳定器和再平衡子弹；今日资金高低切、回流防御板块。</p><p>结论：保留现金/红利仓位，今晚不急于把子弹打满。</p></div><div class="sector s-bear"><p>电力设备/AI供电（关注库 GEV、BE）｜标签：利空（高位杀估值、到价未企稳）</p><p>Bloom Energy 226.22已跌破250目标价、9/24平台251.3失守，今日虽+2.22%但未确认企稳；GEV 908仍高于850目标。</p><p>结论：BE虽已到价但先别接（接飞刀），等重新站回250并站稳。</p></div></div>
+<h2 id="sec-2">今晚美股盘前（为21:30开盘服务）</h2>
+<div class="prose"><p>周一（10/19）收盘：标普7690.73(+0.41%)、纳指26430.89(+1.11%)、道指51966.03(-0.07%)；费半八连阴后存储/光通信反弹但高开低走。个股：MU +2.97%（盘中+5.35%）、SNDK +5.53%、AVGO +1.78%、LITE +1.26%（开+5%）、GOOG +0.96%、NVDA +1.38%、TSM +1.84%。</p><p>宏观：美元指数约101.8；现货黄金约4115美元连跌3日；布伦特约106.9。VIX与10年美债收盘值本轮接口未取到（已列缺口），不臆造。背景风险：高盛主经纪商称对冲基金连续5个交易日净卖出全球AI股，CoreWeave部分债、惠誉主权债务警告压制AI硬件。</p><p>关键观察：周一反弹是“超跌空头回补”还是“止跌企稳”，看今晚能否承接——重点看存储/光通信能否不再高开低走、费半能否放量站回5日线，以及本周META/TSLA财报对AI资本开支的表态。</p></div>
+<h2 id="sec-3">重大事件周 · A/B/C 三情景（给概率，不预测方向）</h2>
+<div class="alert warn"><p>A情景（约45%）：META/TSLA财报继续背书AI资本开支、云厂商FCF担忧缓解，费半止跌站稳5日线——超跌反弹延续，存储/光通信修复。对策：底仓拿住、不追高，杠杆ETP借反弹减。</p><p>B情景（约35%）：财报兑现但市场“利好出尽”，AI融资担忧（CoreWeave/对冲基金净卖出）延续，指数冲高回落、高开低走重演——震荡磨底。对策：不加仓，用现金等更确定位置。</p><p>C情景（约20%）：出现AI算力租赁/云厂商信用事件、或财报指引大砍，费半再破位、VIX明显抬升——去杠杆加速。对策：07709优先减、高估值股（LITE/BE类）按止损纪律。</p><p>概率为主观估计。重大数据/财报公布后我会先看期货、VIX、美元、美债的实时反应再修正；若市场反应与预期相反立即认错，不与单一指标较劲。</p></div>
+<h2 id="sec-4">美股持仓｜完整卡片（美股优先）</h2>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-goog">谷歌-C</h3><span class="cc">GOOG</span></div><div class="cr"><span class="chg rise">▲+0.96%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">357.577</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">340.16</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv fall">-4.87%</span></div></div><p class="concl">底仓拿住、反弹不追。PE仅17倍、云+AI基本面硬，今日随科技反弹但收盘仍低于5/20/60日线，AI资本开支分歧与集体诉讼是扰动，不是基本面崩坏。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>纳指+1.11%、谷歌随科技反弹+0.96%，云高增长、新加坡AI实验室与Waymo扩产、营收同比+24%，AI大盘中估值最低。</p></div><div class="side bear"><span class="sl">空方</span><p>10/19 Pomerantz就证券集体诉讼立案；AI资本开支翻倍致自由现金流承压、市场对云厂商回报周期分歧，且高盛指对冲基金连续5日净卖出AI。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、不打精确分；下方看330/320心理位，上方先看成本区355-357；当前价在均线下方，风报比中性偏正。</p></div><div class="kv op"><span class="kl">操作</span><p>28股底仓不动，今晚若高开不追；若情绪性下杀到320附近且基本面无变化，定性为可分批补的位置（非精确指令）。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>10/19收340.16、+0.96%，开340.13/高342.52/低338.25，52周分位约60%；5/20/60日线约343/342/343，价在均线下方，PE TTM约16.9、市值约4.12万亿美元。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：云+AI长期增长确定、估值便宜；分歧在AI投入回报节奏与短期监管/资金面压制。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：云收入增速连续两季显著放缓、AI搜索对广告冲击被财报证实、或监管再出不利判决，多头逻辑动摇。</p></div></details><details class="fold"><summary>证据<em>25 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">36氪</span><a href="https://36kr.com/newsflashes/4032799561536392" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P3</span><span class="esrc">BusinessQuant</span><a href="https://businessquant.com/stocks/goog/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">证券时报/BusinessQuant</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">2026财报</span></li><li><span class="eid">nw-003</span><span class="elv">P3</span><span class="esrc">Stockhouse/PRNewswire</span><a href="https://stockhouse.com/news/press-releases/2026/10/19/pomerantz-llp-advises-shareholders-of-class-action-filing-against-alphabet-inc" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-004</span><span class="elv">P2</span><span class="esrc">证券时报</span><a href="https://www.stcn.com/article/detail/4036619.html" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-015</span><span class="elv">P2</span><span class="esrc">财联社·高盛PB</span><a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-009</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">2026财报</span></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-009</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">2026财报</span></li></ul></div></details></div></article>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-mu">美光科技</h3><span class="cc">MU</span></div><div class="cr"><span class="chg rise">▲+2.97%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">887.845</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">904.90</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv rise">+1.92%</span></div></div><p class="concl">新建仓已小幅浮盈，拿住不追高。存储超级周期+费半八连阴后反弹，但今日高开低走、亚洲海力士-4.23%不跟，高波动、获利盘重。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>费半八连阴后存储反弹，美光盘中一度+5.35%、存储同业大涨、SK海力士ADR+4.7%，DRAM/NAND涨价与HBM长协支撑、Q4存储ASP续涨。</p></div><div class="side bear"><span class="sl">空方</span><p>上周五存储指数-6.28%、费半连跌8日，今日高开低走（+5.35%收+2.97%），高盛指对冲基金连续5日净卖出AI，Eastspring警告市场低估AI资本开支融资成本。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、4股轻仓；下方看900整数关/800，反弹不追；不与2倍海力士ETP重复加存储杠杆。</p></div><div class="kv op"><span class="kl">操作</span><p>4股拿住，今晚若冲920+不追，回踩880-900再评估；不补仓、不加杠杆。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>10/19收904.90、+2.97%，开913.5/高926.8/低900.6，52周分位约69.6%；PE TTM约11.7、市值约9943亿，成本887.845浮盈约2%，价仍低于5/20日线（916/1026）。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：当前盈利极高、存储涨价；分歧在“周期顶部”与反弹能否持续，高开低走说明资金仍在借反弹出货。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：DRAM/NAND现货价连续走弱、长协客户违约/大幅下修2027需求、或SK海力士破位带动，超级周期提前结束。</p></div></details><details class="fold"><summary>证据<em>25 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">36氪</span><a href="https://36kr.com/newsflashes/4032799561536392" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P2</span><span class="esrc">格隆汇</span><a href="http://m.toutiao.com/group/7698374661104599561/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-003</span><span class="elv">P3</span><span class="esrc">CBC Globe</span><a href="https://cbcglobe.com/en/articles/2026/10/19/breaking-semiconductor-stocks-rally-in-new-york-market-micro-8cfc66e2" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">36氪/财联社/Reuters</span></li><li><span class="eid">nw-004</span><span class="elv">P2</span><span class="esrc">财联社</span><a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-005</span><span class="elv">P2</span><span class="esrc">Vitoria News</span><a href="https://vitorianews.com.br/bolsas-da-asia-fecham-majoritariamente-em-baixa-com-temores-sobre-ia-e-petroleo-1" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-015</span><span class="elv">P2</span><span class="esrc">财联社·高盛PB</span><a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-009</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">财联社</span></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-009</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">财联社</span></li></ul></div></details></div></article>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-avgo">博通</h3><span class="cc">AVGO</span></div><div class="cr"><span class="chg rise">▲+1.78%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">355.607</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">334.59</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv fall">-5.91%</span></div></div><p class="concl">拿住、不追反弹。AI收入+221%、FY28指引乐观，但客户集中+约610亿债务+AI融资担忧，今日高开低走，价仍低于5/20/60日线。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>AI单季收入+221%至167亿、定制ASIC客户多元化（Anthropic/OpenAI超谷歌），FY28 AI收入目标2300亿、EPS&gt;30，高盛/汇丰/杰富瑞目标540/560/550。</p></div><div class="side bear"><span class="sl">空方</span><p>10/16曾单日-4.5%、费半连跌，前五大客户约55%、高度依赖上游晶圆代工产能、约610亿债务；CoreWeave债引发AI基建融资担忧，对冲基金净卖出AI。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、7股仓位中等；下方看320/300整数关，反弹到成本355附近不追加；风报比中性。</p></div><div class="kv op"><span class="kl">操作</span><p>7股拿住，今晚反弹不追、下杀不慌；跌破300且AI订单指引下修再减，不设精确仓位。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>10/19收334.59、+1.78%，开338.75/高340.2/低333.82，52周分位仅约22%（近3月回撤后）；5/20/60日线约342/354/370，价在均线下方，PE TTM约41、市值约1.57万亿。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：AI是真增长、预期已很高；分歧在“好到什么程度才够高预期”、客户集中与债务。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：AI订单取消/延期、ASIC大客户转自研、或客户信用事件致capex砍单，AI高增长逻辑受损。</p></div></details><details class="fold"><summary>证据<em>26 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">新浪财经</span><a href="https://finance.sina.com.cn/stock/t/2026-09-03/doc-iniqpvfw6897728.shtml.md" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P3</span><span class="esrc">Morningstar</span><a href="https://www.morningstar.com/stocks/xmil/1avgo/earnings" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">新浪/Morningstar/MarketBeat</span></li><li><span class="eid">nw-003</span><span class="elv">P3</span><span class="esrc">MarketBeat</span><a href="https://www.marketbeat.com/instant-alerts/price-broadcom-nasdaq-avgo-stock-falls-45-whats-next-2026-10-16/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-004</span><span class="elv">P2</span><span class="esrc">财联社</span><a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-015</span><span class="elv">P2</span><span class="esrc">财联社·高盛PB</span><a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-009</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">Broadcom IR</span></li><li><span class="eid">dp-014</span><span class="elv">P2</span><span class="esrc">Broadcom IR</span></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-009</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">Broadcom IR</span></li><li><span class="eid">dp-014</span><span class="elv">P2</span><span class="esrc">Broadcom IR</span></li></ul></div></details></div></article>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-lite">Lumentum</h3><span class="cc">LITE</span></div><div class="cr"><span class="chg rise">▲+1.26%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">879.99</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">834.51</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv fall">-5.17%</span></div></div><p class="concl">2股轻仓拿住。光器件售罄至2029是硬基本面，但今日高开+5%后一路回落、收近全天低点，远期PE约38倍、波动极大，反弹不追。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>CEO称光器件产能售罄至2029财年、部分需求2027年仍无法满足、2030订单开始锁定，下游GPU龙头20亿美元入股；Q4营收+109%、EPS大增、1.6T发货。</p></div><div class="side bear"><span class="sl">空方</span><p>今日高开低走、收近全天低点，远期PE约38倍偏高，光通信前期为市场最大输家之一；CoreWeave债与对冲基金净卖出AI压制高位光模块。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、2股轻仓；下方看800整数关与750，站稳850再谈加；单日振幅大，风报比中性。</p></div><div class="kv op"><span class="kl">操作</span><p>2股拿住，今晚高开不追；若回到800附近再评估，不补仓。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>10/19收834.51、+1.26%，开872.5/高874.4/低833.5（几乎收在最低），52周分位约69%、较52周高1143大幅回落；市值约745亿，成本879.99浮亏约5%。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：供给稀缺+1.6T/CPO需求确定；分歧在高估值能否扛过capex去杠杆、以及交付（磷化铟/EML）瓶颈。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：1.6T光模块放量不及预期、CPO路线替代EML、或英伟达扩产/投资生变，稀缺逻辑削弱。</p></div></details><details class="fold"><summary>证据<em>23 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">格隆汇</span><a href="http://m.toutiao.com/group/7698374661104599561/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P2</span><span class="esrc">澎湃新闻</span><a href="http://m.toutiao.com/group/7694552429500629554/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-003</span><span class="elv">P3</span><span class="esrc">Nasdaq/Zacks</span><a href="https://www.nasdaq.com/articles/lite-q4-earnings-beat-ai-demand-drives-optical-growth-surge" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">格隆汇/Nasdaq/StockAnalysis</span></li><li><span class="eid">nw-004</span><span class="elv">P3</span><span class="esrc">StockAnalysis</span><a href="https://stockanalysis.com/stocks/lite/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-005</span><span class="elv">P2</span><span class="esrc">财联社</span><a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-015</span><span class="elv">P2</span><span class="esrc">财联社·高盛PB</span><a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">Lumentum IR</span></li><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-004</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-006</span><span class="elv">P3</span><span class="esrc">akshare:stock_us_daily/yfinance</span></li><li><span class="eid">dp-011</span><span class="elv">P2</span><span class="esrc">同花顺</span></li><li><span class="eid">dp-013</span><span class="elv">P2</span><span class="esrc">Lumentum IR</span></li></ul></div></details></div></article>
+<h2 id="sec-5">美股关注库（20:00盘前·7只，本轮全部简列；深度名单LITE/MU已转持仓）</h2>
+<div class="tbl"><table><tr><th>持仓 / 板块</th><th>动作</th><th>关键条件</th></tr><tr><td data-l="持仓/板块">闪迪 SNDK 1371.12</td><td data-l="动作" class="rise">未到价·继续等</td><td data-l="关键条件">目标1350，现价1371.12（+5.53%）已反弹重回目标上方，计划4股/止损1147.5；不追</td></tr><tr><td data-l="持仓/板块">台积电 TSM 420.22</td><td data-l="动作" class="y">未到价·逼近目标</td><td data-l="关键条件">目标420，现价420.22仅差0.05%但未跌破、未触发，计划4股/止损357；未破不接</td></tr><tr><td data-l="持仓/板块">GE Vernova GEV 908.44</td><td data-l="动作" class="rise">未到价·继续等</td><td data-l="关键条件">目标850，现价908.44（-1.39%），计划4股/止损722.5</td></tr><tr><td data-l="持仓/板块">英伟达 NVDA 217.09</td><td data-l="动作" class="rise">未到价·继续等</td><td data-l="关键条件">目标195，现价217.09（+1.38%），计划4股/止损165.75</td></tr><tr><td data-l="持仓/板块">苹果 AAPL 342.94</td><td data-l="动作" class="rise">未到价·继续等</td><td data-l="关键条件">目标295，现价342.94（-0.15%），计划4股/止损250.75</td></tr><tr><td data-l="持仓/板块">可口可乐 KO 93.42</td><td data-l="动作" class="rise">未到价·继续等</td><td data-l="关键条件">目标78，现价93.42（-0.51%），计划4股/止损66.3</td></tr><tr><td data-l="持仓/板块">Bloom Energy BE 226.22</td><td data-l="动作" class="fall">已到价·进入目标区·待深度评估</td><td data-l="关键条件">目标250，现价226.22已破250平台（9/24低251.3），计划4股/止损212.5；今日+2.22%但未企稳，先别接</td></tr></table></div>
+<h2 id="sec-6">BE 已到价但先别接（接飞刀），等企稳</h2>
+<div class="alert warn"><p>Bloom Energy（BE）226.22 ≤ 目标接回价250，已进入目标区、且击穿9/24平台251.3，但10/20仅+2.22%、属超跌反抽、尚未确认企稳；AI数据中心燃料电池长期逻辑在（大摩测算77GW供电缺口、Oracle大单），但PE极高、年内涨幅大、随AI板块去杠杆杀估值。专家判断优先于价格触发：先别接、降级待深度评估。</p><p>触发“可接回”的条件（须同时满足）：①重新放量站回250美元上方并站稳；②连续3个交易日不创新低；③费半日线止跌、AI去杠杆缓和。满足后再按计划4股/止损212.5/约1000美元执行，并逐只给证伪条件；若跌破212.5止损位则放弃。</p><p>其余6只（SNDK/TSM/GEV/NVDA/AAPL/KO）均未到价，继续等，不提前接；TSM最逼近（420.22 vs 420，差0.05%）但未有效跌破，不动作。港股腾讯(0700)、中芯(0981)、A股鼎龙(300054)非本盘，留待明早8:30盘前报告。</p></div>
+<h2 id="sec-7">A股/港股全天复盘（背景后置）</h2>
+<div class="prose"><p>A股：全天冲高回落，上证收3735.37(+0.12%)、深成11801.29(-0.14%)、创业板2739.20(-0.26%)，北证50 +3.88%、科创综指+2.13%；全市场成交1.47万亿（较前日放量约227亿）、3774只上涨/1666只下跌。人形机器人、半导体、AI眼镜/端侧AI爆发，电子行业主力净流入142亿居首；大金融、煤炭、贵金属走弱。</p><p>港股：复市次日随亚洲走弱、尾盘跌幅扩大，恒指收23867.74(-1.32%)、恒生科技4045.91(-1.52%)，成交1904亿；小米逆势+1.5%，阿里-3.58%、联想-5.8%。LPR连续按兵不动（1年3.00%、5年3.50%），AI基建融资可持续性担忧压制科技。</p><p>外部：韩国KOSPI收跌3.73%、SK海力士-4.23%、三星-3%，日经-1.30%、台股-1.13%，亚洲AI权重普跌、不跟美股周一反弹——这是今晚美股开盘前最需要警惕的背离。</p></div>
+<h2 id="sec-8">A股/港股持仓｜完整卡片</h2>
+<article class="card act-watch"><header class="chead"><div class="cl"><h3 id="c-07709-hk">XL二南方海力士（2倍做多SK海力士）</h3><span class="cc">07709.HK</span></div><div class="cr"><span class="chg fall">▼约-7.7%（折算·非实时）</span><span class="act watch">关注</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">59.495</span></div><div class="dcell"><span class="dk">持仓</span><span class="dv">800 股</span></div></div><p class="concl">组合最高风险敞口，反弹优先减杠杆、不加仓、不割地板。今日韩股SK海力士-4.23%为当日主导，隔夜美股ADR反弹对次日有一定支撑但亚洲不跟。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>隔夜美股存储/光通信反弹，存储同业大涨、SK海力士ADR +4.67%、美光+2.97%，存储涨价周期尚未逆转。</p></div><div class="side bear"><span class="sl">空方</span><p>10/20 KOSPI -3.73%、SK海力士-4.23%、三星-3%、外资大幅抛售，亚洲不跟美股反弹，2倍杠杆放大回撤。</p></div></div><div class="kv op"><span class="kl">操作</span><p>nav≈17.7为折算估算（非实时）；800股深度浮亏，不补仓摊低，若存储借美股反弹修复，优先减部分、降杠杆。</p></div><div class="folds"><details class="fold"><summary>跟踪结构 / 重置耗损</summary><div class="fb"><p>每日2倍杠杆跟踪SK海力士、每日重置；港股10/19休市，跨两日折算 (1+2×+0.39%)×(1+2×-4.23%)≈0.923，即净值约17.7、约-7.7%（非交易所实时报价）。杠杆/反向ETP在震荡市长期持有有每日重置耗损，只适合短期方向明确时。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：SK海力士收复前高、存储ASP续涨才谈趋势持有；若ADR再破位、韩股续跌，应执行减仓而非死扛。</p></div></details><details class="fold"><summary>证据<em>10 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-003</span></li><li><span class="eid">ch-001</span></li><li><span class="eid">nw-001</span></li><li><span class="eid">nw-002</span></li><li><span class="eid">nw-001</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li></ul></div></details></div></article>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-601899-sh">紫金矿业</h3><span class="cc">601899.SH</span></div><div class="cr"><span class="chg fall">▼-2.45%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">34.913</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">29.06</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv fall">-16.76%</span></div></div><p class="concl">随贵金属回调，核心拿住、等10/24三季报，不补跌也不割。金价连跌3日是短期获利回吐，PE约11倍、估值有底。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>紫金系黄金板块前三季净利+123%，H1归母+68%、营收+15.8%、ROE约19%，三季报10/24披露，金铜量价共振。</p></div><div class="side bear"><span class="sl">空方</span><p>现货金失守4115美元、连跌3日，贵金属板块领跌，主力资金转向电子等成长方向，紫金A股-2.45%、H股-3.57%。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、仓位较重；下方看28/27元，上行等三季报兑现；只给定性区间、不设精确仓位。</p></div><div class="kv op"><span class="kl">操作</span><p>1500股拿住，三季报前不动、不补跌；跌破28且金价趋势转弱再减。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>收29.06、-2.45%，开29.30/高29.39/低28.55，成交60.5亿，PE TTM约11.4、市值约7568亿，52周分位约27%；成本34.913浮亏约17%。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：产量与成本优势确定、估值低；分歧在金价高位能维持多久与海外风险。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：金铜价格趋势转弱、三季报产量/成本不及预期、或全维持成本继续快速抬升，双击变双杀。</p></div></details><details class="fold"><summary>证据<em>17 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-003</span></li><li><span class="eid">ch-001</span></li><li><span class="eid">dp-012</span></li><li><span class="eid">dp-013</span></li><li><span class="eid">dp-014</span></li><li><span class="eid">nw-001</span></li><li><span class="eid">nw-002</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li><li><span class="eid">dp-011</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li><li><span class="eid">dp-011</span></li></ul></div></details></div></article>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-002156-sz">通富微电</h3><span class="cc">002156.SZ</span></div><div class="cr"><span class="chg rise">▲+0.97%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">49.334</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">48.11</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv fall">-2.48%</span></div></div><p class="concl">随半导体放量收红，600股拿住、接近成本不追。电子主力净流入142亿居首，但大盘缩量、创业板翻绿，持续性看资金能否延续。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>半导体强势、恒玄科技涨停、摩尔线程涨超8%，电子主力净流入142亿居首；H1净利+316%、AMD先进封装链。</p></div><div class="side bear"><span class="sl">空方</span><p>A股缩量震荡、创业板-0.26%、3774涨但权重弱，资金高低切换、防御回流，成长持续性存疑。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、600股、仓位不轻；成本49.33在上方，站稳49再谈，回落看45；只给定性。</p></div><div class="kv op"><span class="kl">操作</span><p>600股拿住，反弹49附近不追，跌破45元执行止损纪律，不再连续摊低。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>收48.11、+0.97%，昨收47.65/高48.99/低47.43，成交19.57亿，PE TTM约30.4、市值约767亿，52周分位约28%；成本49.334小幅浮亏。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：先进封装/AMD链长逻辑；分歧在高估值与资金持续性。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：半导体反弹一日游、AMD MI系列放量/先进封装不及预期、或跌破45，高增长逻辑受损。</p></div></details><details class="fold"><summary>证据<em>15 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-001</span></li><li><span class="eid">nw-002</span></li><li><span class="eid">ch-001</span></li><li><span class="eid">dp-014</span></li><li><span class="eid">nw-003</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li><li><span class="eid">dp-011</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li><li><span class="eid">dp-011</span></li></ul></div></details></div></article>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-01810-hk">小米集团-W</h3><span class="cc">01810.HK</span></div><div class="cr"><span class="chg rise">▲+1.50%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">29.057</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">27.06</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv fall">-6.87%</span></div></div><p class="concl">港股弱市中逆势收红，1400股拿住、不追高，等汽车减亏。跌市有资金低吸，是独立α。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>港股弱势中小米逆势获低吸，手机+汽车+AIoT支撑，物理AI/人形机器人主题催化，估值不高。</p></div><div class="side bear"><span class="sl">空方</span><p>恒科-1.52%、联想-5.8%、腾讯/阿里走弱，AI基建融资担忧压制港股科技，汽车仍亏损。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、1400股；成本29.06在上方，站稳29再谈，回落看25；只给定性。</p></div><div class="kv op"><span class="kl">操作</span><p>1400股拿住，不追高，不在恐慌中减；跌破25且汽车订单/毛利恶化再减。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>收27.06、+1.50%，昨收26.66/高27.46/低26.56，PE TTM约18.4，52周分位约18%；成本29.057浮亏约7%。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：逆势α、终端基本面稳；分歧在汽车盈利拐点与大盘环境。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：汽车单车亏损扩大、手机毛利率连续下滑、或跌破25，修复逻辑受损。</p></div></details><details class="fold"><summary>证据<em>12 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-001</span></li><li><span class="eid">nw-002</span></li><li><span class="eid">ch-001</span></li><li><span class="eid">nw-003</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li></ul></div></details></div></article>
+<article class="card act-hold"><header class="chead"><div class="cl"><h3 id="c-09988-hk">阿里巴巴-W</h3><span class="cc">09988.HK</span></div><div class="cr"><span class="chg fall">▼-3.58%</span><span class="act hold">持有</span></div></header><div class="dbar"><div class="dcell"><span class="dk">成本</span><span class="dv">123.046</span></div><div class="dcell"><span class="dk">现价</span><span class="dv">104.90</span></div><div class="dcell"><span class="dk">浮动</span><span class="dv fall">-14.75%</span></div></div><p class="concl">随港股科技领跌，300股小仓拿住、不补跌，等云AI。日本新设AI公司是长期催化，短期由情绪主导。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>在日本新设全资AI公司、加码本地大模型与云，云AI推进+回购+估值不贵，营收同比约+9%。</p></div><div class="side bear"><span class="sl">空方</span><p>恒科-1.52%、阿里-3.58%领跌，AI基建融资担忧、LPR连续不动、可选消费承压。</p></div></div><div class="kv risk"><span class="kl">风控</span><p>定性持有、300股轻仓；下方看100港元整数关，站稳123成本再谈；只给定性。</p></div><div class="kv op"><span class="kl">操作</span><p>300股拿住，不补跌；跌破100且云收入增速放缓再减。</p></div><div class="folds"><details class="fold"><summary>市场位置 / 估值</summary><div class="fb"><p>收104.90、-3.58%，昨收108.8/高107.1/低104.5，成交63亿，PE TTM约24.7，52周分位约23%；成本123.046浮亏约15%。</p></div></details><details class="fold"><summary>共识与分歧</summary><div class="fb"><p>共识：云AI+回购+低估值；分歧在云投入回报时点与港股流动性。</p></div></details><details class="fold"><summary>证伪条件</summary><div class="fb"><p>证伪：云收入增速持续低于预期、亏损扩大、电商份额被持续蚕食，修复逻辑走弱。</p></div></details><details class="fold"><summary>证据<em>13 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">nw-001</span></li><li><span class="eid">ch-001</span></li><li><span class="eid">dp-013</span></li><li><span class="eid">nw-002</span></li><li><span class="eid">nw-003</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li><li><span class="eid">dp-001</span></li><li><span class="eid">dp-002</span></li><li><span class="eid">dp-006</span></li><li><span class="eid">dp-009</span></li></ul></div></details></div></article>
+<h2 id="sec-9">场外基金（支付宝长期保留5只）</h2>
+<article class="card act-watch"><header class="chead"><div class="cl"><h3 id="c-000217">华安黄金ETF联接C（000217）</h3><span class="cc">000217 · 持仓17,714.72 · 持有收益-1,751.86</span></div><div class="cr"><span class="chg ">黄金对冲仓</span><span class="act watch">观察</span></div></header><p class="concl">保留为黄金对冲仓、不追加；金价连跌3日短期承压，净值近一年位置仍偏低。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>央行购金+避险长期逻辑在，黄金与股债相关性低、可平滑组合，今日亚洲股市普跌时仍具配置价值。</p></div><div class="side bear"><span class="sl">空方</span><p>现货金连跌3日、贵金属资金流出，短期高位回吐，净值随金价波动。</p></div></div><div class="kv op"><span class="kl">操作</span><p>约1.77万元保留为对冲仓，金价未企稳前不追加；基金规模/经理变更未取到，列缺口。</p></div><div class="folds"><details class="fold"><summary>证据<em>10 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">新浪财经</span><a href="http://finance.sina.cn/2026-10-19/detail-inivtchv7608199.d.html" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">新浪财经</span></li><li><span class="eid">dp-006</span><span class="elv">P2</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P2</span><span class="esrc">新浪财经</span><a href="https://finance.sina.com.cn/roll/2026-10-15/doc-inivhyaf7352837.shtml" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-004</span><span class="elv">P3</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span></li></ul></div></details></div></article>
+<article class="card act-watch"><header class="chead"><div class="cl"><h3 id="c-007467">华泰柏瑞中证红利低波动ETF联接C（007467）</h3><span class="cc">007467 · 持仓10,831.37 · 持有收益+358.96</span></div><div class="cr"><span class="chg ">核心防御仓</span><span class="act watch">观察</span></div></header><p class="concl">保留为核心防御仓；市场高低切、资金回流防御，红利低波是稳定器。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>高股息+低波动因子在风险偏好回落、成长去杠杆阶段抗跌，今日资金回流大金融/红利方向。</p></div><div class="side bear"><span class="sl">空方</span><p>若市场V型反转、成长回归，红利低波会跑输；长端利率快速下行也压缩其相对吸引力。</p></div></div><div class="kv op"><span class="kl">操作</span><p>约1.08万元保留为防御底仓，不追高、不卖出；规模/经理变更列缺口。</p></div><div class="folds"><details class="fold"><summary>证据<em>9 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">证券时报</span><a href="http://m.toutiao.com/group/7696661288453161507/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">证券时报</span></li><li><span class="eid">dp-006</span><span class="elv">P2</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P2</span><span class="esrc">央广网</span><a href="http://finance.cnr.cn/gstj/20261015/t20261015_527842329.shtml" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-004</span><span class="elv">P3</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span></li></ul></div></details></div></article>
+<article class="card act-add"><header class="chead"><div class="cl"><h3 id="c-021893">易方达半导体材料设备ETF联接A（021893）</h3><span class="cc">021893 · 持仓3,965.84 · 持有收益-1,234.16</span></div><div class="cr"><span class="chg ">高波动卫星仓</span><span class="act add">加</span></div></header><p class="concl">保留小仓位、用定投平滑，不主动追高；今日半导体电子主力净流入142亿，国产设备链活跃。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>国产替代+先进封装扩产，今日半导体/端侧AI爆发、电子主力净流入居首，政策与自主可控长期支撑。</p></div><div class="side bear"><span class="sl">空方</span><p>全球AI硬件去杠杆、费半连跌后反弹不牢，基金短期跟随内外半导体高波动。</p></div></div><div class="kv op"><span class="kl">操作</span><p>约3966元小仓位保留，用定投平滑、不一次性加仓；规模/经理变更列缺口。</p></div><div class="folds"><details class="fold"><summary>证据<em>9 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">证券时报</span><a href="https://www.stcn.com/article/detail/4075027.html" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">证券时报</span></li><li><span class="eid">dp-006</span><span class="elv">P2</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P2</span><span class="esrc">财联社</span><a href="https://www.cls.cn/detail/2507819" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-004</span><span class="elv">P3</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span></li></ul></div></details></div></article>
+<article class="card act-add"><header class="chead"><div class="cl"><h3 id="c-013403">华夏恒生科技ETF联接(QDII)C（013403，定投）</h3><span class="cc">013403 · 持仓98.44 · 持有收益-18.46</span></div><div class="cr"><span class="chg ">定投零头</span><span class="act add">加</span></div></header><p class="concl">仅留98.44元定投零头，维持极小额定投观察；今日恒科-1.52%，不恢复大额仓位。</p><div class="bb"><div class="side bull"><span class="sl">多方</span><p>恒生科技估值全球洼地、小米逆势、互联网回购托底，低位定投积累份额。</p></div><div class="side bear"><span class="sl">空方</span><p>美债利率高+港股流动性弱+AI capex融资担忧，今日恒科-1.52%、阿里-3.58%，波动大。</p></div></div><div class="kv op"><span class="kl">操作</span><p>维持98.44元零头极小额定投，不主动加仓；待美债利率回落、港股盈利确认修复再评估。</p></div><div class="folds"><details class="fold"><summary>证据<em>9 条</em></summary><div class="fb"><ul class='ev'><li><span class="eid">dp-001</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-002</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-003</span><span class="elv">P3</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-001</span><span class="elv">P2</span><span class="esrc">港交所披露易</span><a href="https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0812/2026081200297_c.pdf" target="_blank" rel="noopener">来源</a></li><li><span class="eid">ch-001</span><span class="elv">P2</span><span class="esrc">中国经济网</span></li><li><span class="eid">dp-006</span><span class="elv">P2</span><span class="esrc">东方财富基金净值 api.fund.eastmoney.com/f10/lsjz</span><a href="http://fundf10.eastmoney.com/" target="_blank" rel="noopener">来源</a></li><li><span class="eid">nw-002</span><span class="elv">P2</span><span class="esrc">中国经济网</span><a href="http://m.ce.cn/gp/gd/202610/t20261014_3256985.shtml" target="_blank" rel="noopener">来源</a></li><li><span class="eid">dp-004</span><span class="elv">P3</span></li><li><span class="eid">dp-005</span><span class="elv">P3</span></li></ul></div></details></div></article>
+<article class="card ref"><header class="chead"><div class="cl"><h3 id="c-advisory">帮你投·全球精选100</h3><span class="cc">ADVISORY · 持仓213.59</span></div></header><p class="note">投顾组合、无公开净值代码，按持仓金额213.59元列示，不做个券四层分析、不纳入评分；持有收益+23.97元。</p></article>
+<h2 id="sec-10">次日实战候选作战池（10/21 周三）</h2>
+<div class="prose"><p>今晚21:30美股：不追高开反弹，重点看存储/光通信能否不再高开低走、费半能否放量站回5日线；GOOG/AVGO/MU/LITE底仓持有，不设加仓。若META/TSLA财报（本周）落地，先看期货、VIX、美元、美债实时反应再动。</p><p>现金运用：约8350美元（SGOV回笼）暂不急用，等两类位置——一是费半确认止跌后回踩不破的低吸点，二是BE重新站回250并企稳；在此之前持币观望。</p><p>明日港股：07709看隔夜美股海力士/存储方向，反弹优先减杠杆；小米/阿里看港股科技能否企稳，不恐慌减。</p><p>明日A股：紫金等10/24三季报；通富守45、不追高；关注电子主力净流入能否延续、创业板能否翻红。</p><p>关注库：BE到价但先别接（等站回250）；TSM逼近目标但未破不接；其余继续等。</p></div>
+<h2 id="sec-11">操作建议汇总（决策权在你）</h2>
+<div class="tbl"><table><tr><th>持仓 / 板块</th><th>动作</th><th>关键条件</th></tr><tr><td data-l="持仓/板块">GOOG 谷歌</td><td data-l="动作" class="rise">拿住（底仓28股）</td><td data-l="关键条件">反弹不追，320附近再评估补</td></tr><tr><td data-l="持仓/板块">MU 美光</td><td data-l="动作" class="rise">拿住（4股）</td><td data-l="关键条件">冲920不追，回踩880-900再评估</td></tr><tr><td data-l="持仓/板块">AVGO 博通</td><td data-l="动作" class="rise">拿住（7股）</td><td data-l="关键条件">反弹不追，跌破300再减</td></tr><tr><td data-l="持仓/板块">LITE</td><td data-l="动作" class="rise">拿住（2股）</td><td data-l="关键条件">站稳850再谈加，800附近评估</td></tr><tr><td data-l="持仓/板块">07709 2倍海力士</td><td data-l="动作" class="fall">反弹优先减杠杆</td><td data-l="关键条件">不补仓摊低，不割地板</td></tr><tr><td data-l="持仓/板块">现金 约8350美元</td><td data-l="动作" class="rise">持币观望</td><td data-l="关键条件">等费半止跌/BE站回250</td></tr><tr><td data-l="持仓/板块">小米 01810</td><td data-l="动作" class="rise">拿住（1400股）</td><td data-l="关键条件">不追高，跌破25再评估</td></tr><tr><td data-l="持仓/板块">阿里 09988</td><td data-l="动作" class="rise">拿住（300股）</td><td data-l="关键条件">不补跌，跌破100再评估</td></tr><tr><td data-l="持仓/板块">紫金 601899</td><td data-l="动作" class="rise">拿住（1500股）</td><td data-l="关键条件">等10/24三季报，跌破28再减</td></tr><tr><td data-l="持仓/板块">通富 002156</td><td data-l="动作" class="rise">持（600股，不加码）</td><td data-l="关键条件">反弹49不追，破45止损纪律</td></tr><tr><td data-l="持仓/板块">黄金/红利/半导体/恒生基金</td><td data-l="动作" class="rise">保留/定投</td><td data-l="关键条件">不追加，半导体/恒生用定投平滑</td></tr><tr><td data-l="持仓/板块">关注库 BE</td><td data-l="动作" class="fall">到价先别接</td><td data-l="关键条件">等站回250并站稳，再给执行清单</td></tr></table></div>
+<h2 id="sec-12">观察名单（现在不买，触发条件再考虑）</h2>
+<div class="prose"><p>META、TSLA（本周财报）：只观察AI资本开支与毛利率指引，不持仓、不在财报前开仓；若财报引发费半方向选择，作为加减仓的确认信号。</p><p>CoreWeave等AI算力租赁商信用利差与云厂商FCF：若进一步走阔，是AI硬件去杠杆加剧的领先信号，提示优先减杠杆ETP。</p><p>SK海力士现货/ADR：决定07709方向，今晚美股海力士ADR与明日韩股开盘是关键观察点。</p></div>
+<h2 id="sec-13">我不确定的（数据缺口与限制）</h2>
+<div class="prose"><p>紫金/通富/小米/阿里机械覆盖率67.5%（50-69%区间）：本报告对这4只只给定性判断，不打精确评分、不设具体仓位数字，价位为整数关/心理位的定性区间；GOOG/AVGO/MU/LITE/07709覆盖率较高。</p><p>07709港股10/20交易所实时收盘净值未取到：nav≈17.7、涨跌≈-7.7%为按SK海力士现货（10/19+0.39%、10/20-4.23%）跨两日2倍日杠杆折算的估算（港股10/19休市），非交易所实时报价，与实际净值可能有偏差。</p><p>VIX、10年美债收益率本轮接口（seed直查）返回空，未取到可信收盘值，不臆造（期权板块已移除，仅作宏观背景）；WTI具体值、BTC未取（仅取到布伦特约106.9）。</p><p>A股各股5/20/60日均线、ATR、个股主力净流入/北向（东财/腾讯/新浪/akshare接口不可用）未取到，仅有板块级电子主力+142亿，不臆造个股数值；基金规模变动、经理变更未取到。</p><p>美股为10/19周一收盘、A股/港股为10/20收盘，存在跨市场时差；盘前/盘中变化不在本报告口径，开盘后以实时为准。</p></div>
+<details class="fold src"><summary>数据来源与口径<em>20 条</em></summary><div class="fb"><p class="cnote"><b>覆盖率口径</b>：gate_check 机械计算，组合机械覆盖率 78.8%（剔除投顾/简列关注）。GOOG/AVGO 95.8%、MU 87.5%、LITE 83.3%、07709 76.7%、4只基金73.3%；紫金/通富/小米/阿里 67.5%（只给定性判断，不打精确评分、不设具体仓位数字）。行情来自Wind/同花顺，新闻来自文末具体文章页。</p><p>行情来自Wind/同花顺/交易所；新闻/研报均为下方可点开的具体文章页，按标的对应证据ID（nw-xxx）挂接。同一公告多家转载只算一个来源。</p><p>1. <a href="https://36kr.com/newsflashes/4032799561536392" target="_blank" rel="noopener">36氪：10/19美股大型科技股收涨、存储/半导体反弹（美光+3%、闪迪/SK海力士+4%）</a></p><p>2. <a href="http://m.toutiao.com/group/7698374661104599561/" target="_blank" rel="noopener">格隆汇：开盘存储/光通信普涨，美光+4.33%、闪迪+5.7%、SK海力士+4.75%、Lumentum+5.02%</a></p><p>3. <a href="https://cbcglobe.com/en/articles/2026/10/19/breaking-semiconductor-stocks-rally-in-new-york-market-micro-8cfc66e2" target="_blank" rel="noopener">CBC Globe：Semiconductor stocks rally in New York, memory names lead</a></p><p>4. <a href="http://m.toutiao.com/group/7698172432099590706/" target="_blank" rel="noopener">财联社·避雷针：上周五纳指-2.14%、存储-6.28%、费半8连跌，高盛指对冲基金连续5日净卖出AI</a></p><p>5. <a href="https://vitorianews.com.br/bolsas-da-asia-fecham-majoritariamente-em-baixa-com-temores-sobre-ia-e-petroleo-1" target="_blank" rel="noopener">Vitoria News：亚洲市场普跌，聚焦AI资本开支与油价担忧（Eastspring警告融资成本）</a></p><p>6. <a href="https://cj.sina.com.cn/articles/view/1644983660/620c756c02001wx44" target="_blank" rel="noopener">新浪财经：韩国KOSPI 10/20收跌3.73%，SK海力士-4.23%、三星-3%</a></p><p>7. <a href="http://m.toutiao.com/group/7698645252860658191/" target="_blank" rel="noopener">证券时报：收评 半导体强势、恒玄涨停、电子行业主力净流入142亿</a></p><p>8. <a href="https://36kr.com/newsflashes/4033867209200514" target="_blank" rel="noopener">36氪：A股收评 机器人/半导体/AI眼镜爆发，紫金-2%</a></p><p>9. <a href="https://www.cls.cn/detail/2509407" target="_blank" rel="noopener">财联社：市场主线 缩量震荡、指数分化、资金高低切</a></p><p>10. <a href="https://www.instaforex.net/forex-news/3236244" target="_blank" rel="noopener">Dow Jones/InstaForex：恒指-1.32%/恒科-1.52%，AI基建融资担忧，联想-5.8%、阿里-3.58%</a></p><p>11. <a href="https://finance.eastmoney.com/a/202610203901144629.html" target="_blank" rel="noopener">东方财富：阿里巴巴在日本设立全资AI公司，加码本地大模型与云</a></p><p>12. <a href="https://www.ipotnews.com/ipotnews/newsDetail.php?group_news=IPOTNEWS&amp;halaman=1&amp;news_id=252866&amp;q=HSI%20Hong%20Kong&amp;search=y_general&amp;taging_subtype=Develop%20Market" target="_blank" rel="noopener">IPOTNEWS：港股弱势中小米逆势获低吸；紫金黄金国际前三季净利+1.23%</a></p><p>13. <a href="https://finance.sina.com.cn/stock/t/2026-09-03/doc-iniqpvfw6897728.shtml.md" target="_blank" rel="noopener">新浪财经：博通FY28 AI收入目标2300亿、EPS&gt;30，高盛/汇丰/杰富瑞上调目标价</a></p><p>14. <a href="https://www.morningstar.com/stocks/xmil/1avgo/earnings" target="_blank" rel="noopener">Morningstar：Broadcom AI revenue grew 221%，custom ASIC demand broadened</a></p><p>15. <a href="https://www.marketbeat.com/instant-alerts/price-broadcom-nasdaq-avgo-stock-falls-45-whats-next-2026-10-16/" target="_blank" rel="noopener">MarketBeat：Broadcom 10/16 fell 4.5%，customer concentration/AI capex concern</a></p><p>16. <a href="https://www.nasdaq.com/articles/lite-q4-earnings-beat-ai-demand-drives-optical-growth-surge" target="_blank" rel="noopener">Nasdaq/Zacks：Lumentum Q4 earnings beat on AI demand, optical growth surge</a></p><p>17. <a href="https://stockanalysis.com/stocks/lite/" target="_blank" rel="noopener">StockAnalysis：Lumentum高开低走、远期PE约38倍，光通信为前期最大输家之一</a></p><p>18. <a href="https://stockhouse.com/news/press-releases/2026/10/19/pomerantz-llp-advises-shareholders-of-class-action-filing-against-alphabet-inc" target="_blank" rel="noopener">Stockhouse：Pomerantz LLP就Alphabet证券集体诉讼立案（10/19）</a></p><p>19. <a href="https://www.stcn.com/article/detail/4036619.html" target="_blank" rel="noopener">证券时报：谷歌AI资本开支大增致自由现金流承压，云厂商回报分歧</a></p><p>20. <a href="http://m.toutiao.com/group/7698654207037784576/" target="_blank" rel="noopener">金融界：现货黄金失守4115美元、连跌3日，贵金属板块下挫</a></p></div></details>
+<footer class="foot"><b>免责声明：</b>本报告仅为基于公开信息的研究分析与学习参考，<b>不构成任何投资建议或买卖要约</b>，不承诺收益、不保证准确性。期权与杠杆/反向 ETP 风险较高，反向杠杆产品存在每日重置耗损、不适合长期持有。CPI/FOMC 等重大数据与会议前后请以实时行情为准，市场有风险，决策与后果由你自行承担，最终决策权始终在你手中。</footer>
+</div></div></body></html>

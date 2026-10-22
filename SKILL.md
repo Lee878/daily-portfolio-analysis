@@ -2,7 +2,7 @@
 name: daily-portfolio-analysis
 description: "深度持仓分析引擎。读取持仓档案，对每只持仓标的执行四层多角色辩论分析（5视角数据采集→多空强制辩论→三视角风控评估→基金经理终审），输出盘前/午间/盘后三时段深度报告。证据门禁：取证不达标禁止辩论、论点无证据ID禁止交付。当用户要求做每日持仓分析、盘前报告、午间总结、盘后总结、持仓操作建议、持仓诊断时使用。支持A股、港股、美股、基金多账户组合。"
 license: MIT
-version: 2.6.1
+version: 2.7.0
 metadata:
   requires-python: ">=3.10"
   entrypoint: "scripts/run_daily.py"
@@ -302,7 +302,7 @@ python3 $ENG/scripts/reuse_evidence.py --report-root <daily-reports> --date <日
 | 报告正文 MD | `YYYY-MM-DD-盘前报告.md` 等 | 存档，不 present |
 | 证据文件 | `evidence/<日期>_<时段>_<代码>.json`、`*_macro.json` | 存档，对账依据，不 present |
 
-HTML 设计规范（深色卡片、响应式多空双栏、Regime 条、板块卡、信息来源折叠区）全部移到
+HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠、证据脚注、板块卡、信息来源折叠区）全部移到
 [report-html-template.md](references/report-html-template.md)，写报告时按该文件执行，不在此占用流程篇幅。
 
 ## 观察名单（克制写法）

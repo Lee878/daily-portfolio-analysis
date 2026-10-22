@@ -207,7 +207,7 @@ def _inject_version_footer(html: Path, coverage: float, status: str = "PASS"):
     gate_txt = "双门禁 PASS" if status == "PASS" else "报告门未过·降级交付"
     footer = (
         '<footer id="daily-version-footer" style="margin:18px 0 6px;padding-top:12px;'
-        'border-top:1px solid #21262d;text-align:center;font-size:11px;color:#7d8590;'
+        'border-top:1px solid #e2ded4;text-align:center;font-size:11px;color:#6c727b;'
         'line-height:1.7;font-family:ui-monospace,Menlo,Consolas,monospace;">'
         f'引擎 v{version} · 构建 {build} · {gate_txt} · 覆盖率 {round(coverage*100,1)}%<br>'
         '本报告由确定性脚本门禁产出，不构成投资建议，决策与后果由用户自行承担。'
@@ -217,6 +217,22 @@ def _inject_version_footer(html: Path, coverage: float, status: str = "PASS"):
     else:
         text += footer
     html.write_text(text, encoding="utf-8")
+
+
+def _inject_into_body(text: str, payload: str) -> str:
+    """把 payload 插到真实 body 开标签之后。
+
+    v2.7.0 修的坑：旧版直接 `re.sub(r"(<body[^>]*>)", ...)`，一旦样式表注释里
+    出现 body 字样（写文档时很容易），横幅就被插进 <style> 内部——CSS 注释提前
+    结束、后续规则全部失效，而且横幅本身被当成 CSS 丢弃，用户啥也看不到。
+    这里先算出 style/script 区间，只认区间外的 body 开标签。
+    """
+    spans = [m.span() for m in _STYLE_BLOCK_RE.finditer(text)]
+    spans += [m.span() for m in _SCRIPT_BLOCK_RE.finditer(text)]
+    for m in re.finditer(r"<body\b[^>]*>", text, re.I):
+        if not any(s <= m.start() < e for s, e in spans):
+            return text[:m.end()] + payload + text[m.end():]
+    return payload + text
 
 
 def _apply_degrade(html: Path, problems, coverage: float) -> int:
@@ -235,21 +251,23 @@ def _apply_degrade(html: Path, problems, coverage: float) -> int:
     if rest > 0:
         items += f"<li>…另有 {rest} 项</li>"
     banner = (
-        '<div id="degrade-banner" style="margin:14px 0 0;padding:12px 14px;'
-        'border:1px solid #f85149;border-left-width:5px;border-radius:6px;'
-        'background:#2d1214;color:#ffdcd7;font-size:13.5px;line-height:1.6">'
-        '<div style="font-weight:700;font-size:15px;color:#ff7b72">'
+        '<div id="degrade-banner" style="margin:0 0 0;padding:12px 14px;'
+        'border:0;border-bottom:1px solid #f0c2bd;border-left:0;'
+        'background:#fdf2f0;color:#7d2f28;font-size:13.5px;line-height:1.6">'
+        '<div style="font-weight:700;font-size:15px;color:#a3261f">'
         '⚠ 数据不全 · 本报告未通过报告门</div>'
-        f'<div style="margin-top:4px;color:#d0a9a4">覆盖率 {round(coverage * 100, 1)}%'
+        f'<div style="margin-top:4px;color:#7d2f28">覆盖率 {round(coverage * 100, 1)}%'
         f' · {len(problems)} 项问题 · 已按降级交付</div>'
-        f'<ul style="margin:8px 0 0 18px;padding:0">{items}</ul>'
-        '<div style="margin-top:8px;color:#d0a9a4">涉及缺口的数据点已在证据清单中标注；'
+        # 问题清单默认收起：二十来项铺在首屏会把报告挤到第二屏之外，
+        # 缺口"存在且可查"才是重点，逐条细读是排查时才做的事。
+        '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12.5px;'
+        f'color:#a3261f">查看 {len(problems)} 项问题 ↓</summary>'
+        f'<ul style="margin:6px 0 0 18px;padding:0;color:#7d2f28">{items}</ul>'
+        '</details>'
+        '<div style="margin-top:8px;color:#7d2f28">涉及缺口的数据点已在证据清单中标注；'
         '结论仅作参考，不构成投资建议。</div>'
         '</div><!--/degrade-->')
-    if re.search(r"<body[^>]*>", text):
-        text = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + banner, text, count=1)
-    else:
-        text = banner + text
+    text = _inject_into_body(text, banner)
     html.write_text(text, encoding="utf-8")
     return len(shown)
 
@@ -257,18 +275,31 @@ def _apply_degrade(html: Path, problems, coverage: float) -> int:
 # 徽标统一中性灰，不使用绿/蓝涨跌色（避免与"多方/涨=绿、空方/跌=红"语义混淆）；
 # 仅 P4 弱证据/传闻用黄色虚线，便于识别"不可单独成论"。.b 为盘前 builder 自有徽标，
 # 在此一并统一配色（本样式注入在 builder CSS 之后，同特异性下生效）。
+# v2.7.0：版式改为浅色 Brief，徽标从"填充小方块"改成上标脚注；
+# P4 弱证据仍用琥珀色虚线，提醒不可单独成论。
 BADGE_CSS = (
-    ".rb,.b{display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;"
-    "font-size:9.5px;font-weight:400;line-height:1.2;color:#9aa7b4;"
-    "background:rgba(139,148,158,.08);border:1px solid rgba(139,148,158,.26);"
-    "border-radius:4px;padding:1px 4px;margin:0 1px;vertical-align:baseline;"
-    "white-space:nowrap;opacity:.6}"
-    ".rb.p1,.rb.p2,.b.p1,.b.p2{color:#c6d0db;border-color:rgba(154,167,180,.42);"
-    "background:rgba(154,167,180,.12);opacity:.8}"
-    ".rb.p4,.b.p4{color:#d29922;border:1px dashed rgba(210,153,34,.55);"
-    "background:rgba(210,153,34,.08);opacity:.92}"
+    ".rb,.b{display:inline;font-family:ui-monospace,Menlo,Consolas,monospace;"
+    "font-size:9.5px;font-weight:400;line-height:1;color:#989ea6;"
+    "vertical-align:super;white-space:nowrap}"
+    ".rb.p1,.rb.p2,.b.p1,.b.p2{color:#6c727b}"
+    ".rb.p4,.b.p4{color:#8f6119;border-bottom:1px dashed rgba(143,97,25,.55)}"
 )
 _EXISTING_BADGE_RE = re.compile(r'<span class="b [^"]*"[^>]*>.*?</span>', re.S)
+
+
+def _sub_outside_tags(pattern, repl, text):
+    """只在标签之外的文本上做替换，属性里的同类文本保持原样。
+
+    背景：v2.7.0 渲染器把证据 ID 写进 data-ev 属性供门禁计数，全局 sub 会把
+    <span> 插进属性值、产出畸形标签。此函数按标签切段，只处理正文段。
+    """
+    out, last = [], 0
+    for m in re.finditer(r"<[^>]*>", text):
+        out.append(pattern.sub(repl, text[last:m.start()]))
+        out.append(m.group(0))
+        last = m.end()
+    out.append(pattern.sub(repl, text[last:]))
+    return "".join(out)
 
 
 def _load_id_meta(report_root: Path, date: str, session: str):
@@ -331,7 +362,10 @@ def _render_badges(html: Path, report_root: Path, date: str, session: str):
         count += 1
         return f'<span class="rb {lv.lower()}" title="{title}">[{i}]</span>'
 
-    text = gate.ID_RE.sub(_wrap, text)
+    # 只替换"标签之外"的正文。v2.7.0 起渲染器把 Evidence ID 写进 data-ev
+    # 属性供门禁计数，若在这里被 sub 命中，会把 <span> 插进属性值里，
+    # 直接产出畸形标签（App 打开会截断属性值后面的内容）。
+    text = _sub_outside_tags(gate.ID_RE, _wrap, text)
     text = re.sub("\x00(\\d+)\x00",
                   lambda m: protected[int(m.group(1))], text)
 
@@ -350,6 +384,8 @@ def _render_badges(html: Path, report_root: Path, date: str, session: str):
 
 
 _BANNER_RE = re.compile(r"(数据覆盖率[^0-9%]{0,12})(\d{1,3})(\s*%)")
+_STYLE_BLOCK_RE = re.compile(r"<style\b[^>]*>.*?</style>", re.S | re.I)
+_SCRIPT_BLOCK_RE = re.compile(r"<script\b[^>]*>.*?</script>", re.S | re.I)
 
 
 def _sync_coverage_banner(html: Path, combo: float):
