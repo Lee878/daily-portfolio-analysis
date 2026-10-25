@@ -8,49 +8,67 @@
 
 ---
 
-## 必填（方法 B：secret 直接存文本）
+## 已选方案：方法 A（私有仓库存持仓）✅
 
-| Secret 名 | 内容 | 怎么拿到 |
-|---|---|---|
-| `HOLDINGS_MD` | 你本机 `config/holdings.md` 的**全文** | 打开本机 `D:\Workplace\stock\config\holdings.md`，整份复制 |
-| `NOTIFY_JSON` | 你本机 `config/notify.json` 的**全文**（含 Bark key） | 同上，复制 `config/notify.json` |
-| `DELIVERY_JSON` | 你本机 `config/delivery.json` 的**全文**（含 COS） | 同上，复制 `config/delivery.json` |
+你的持仓已放在私有仓库 **`Lee878/dpa-holdings`**（仅你自己可见，公开仓里不存在）。
+云端任务每次开头自动从那里拉最新的 `holdings.md`，改持仓只改这一个私有仓即可。
 
-设好这三个，bootstrap 每次任务开头会自动把它们写成云端工作区的对应文件。
-
----
-
-## 可选（方法 A：私有仓库存持仓）
-
-如果你不想把持仓全文贴在 secret 里，可以改用私有仓库：
+### 持仓相关（方法 A，必填）
 
 | Secret 名 | 内容 |
 |---|---|
-| `HOLDINGS_REPO` | 私有仓地址，如 `github.com/yourname/private-holdings.git` |
-| `HOLDINGS_TOKEN` | 有该私有仓读权限的 GitHub PAT |
+| `HOLDINGS_REPO` | `github.com/Lee878/dpa-holdings.git` |
+| `HOLDINGS_TOKEN` | 有该私有仓**读取权限**的 GitHub token（见下方「token 怎么拿」） |
 
-设了这两个，bootstrap 会**优先**从私有仓拉 `holdings.md` 覆盖 secret 里的版本。
-改持仓只改私有仓那一个文件即可，不用动 secret。
+设好这两个，bootstrap 每次任务开头会 `git clone` 私有仓并覆盖 `config/holdings.md`。
 
----
+### 推送通道（Bark / COS，必填）
 
-## 更新持仓（方法 B 的后续怎么改）
+| Secret 名 | 内容 | 怎么拿到 |
+|---|---|---|
+| `NOTIFY_JSON` | 你本机 `config/notify.json` 的**全文**（含 Bark key） | 打开本机 `D:\Workplace\stock\config\notify.json`，整份复制 |
+| `DELIVERY_JSON` | 你本机 `config/delivery.json` 的**全文**（含 COS 配置） | 同上，复制 `config/delivery.json` |
 
-`HOLDINGS_MD` 就是持仓的「唯一真相来源」。要改持仓：
-
-1. 打开 CloudAgent 里这个 Agent 的 secrets 设置；
-2. 把 `HOLDINGS_MD` 的内容替换成新的 `config/holdings.md` 全文；
-3. 保存。下一次任务跑起来就用新持仓了。
-
-> 懒得自己改？直接跟我说「我买了/卖了 X」，我帮你改好本机文件，
-> 你把那段新文字贴进 `HOLDINGS_MD` 即可。
+> 这两个**不要**进任何仓库（含私有仓），只放在云端密文里。
 
 ---
 
-## 方法 C（发截图 AI 就地更新）说明
+## `HOLDINGS_TOKEN` 怎么拿（二选一）
 
-如果你想像「爸的方案」一样发截图让 AI 改持仓：
-- 在任务里直接发持仓截图，AI 读图后用 `scripts/holdings_update.py` 写回 `config/holdings.md`。
-- **注意**：若云端沙箱每次任务都是全新环境（不保留 /workspace 文件），
-  截图改的持仓下一次会丢失。此时必须配合方法 A 或 B 作持久化兜底，
-  或确认沙箱在多次任务间保留文件（见 README 的「持久化探针」）。
+**方式 1（推荐，最安全）：建一个细粒度只读 token**
+1. GitHub → 右上角头像 → Settings → Developer settings → Fine-grained tokens → Generate new token
+2. Token name 随便填（如 `dpa-cloud-read`）
+3. Resource owner 选 `Lee878`
+4. Repository access → **Only select repositories** → 勾 `dpa-holdings`
+5. Permissions → Repository permissions → **Contents → Read-only**
+6. Generate → 复制那串 `github_pat_...`，粘进 CloudAgent 的 `HOLDINGS_TOKEN`
+
+**方式 2（最快，但权限较宽）：复用你现有的经典 PAT**
+- 直接把你生成过的 `ghp_...` 那个 PAT 填进 `HOLDINGS_TOKEN` 也能用，
+  但它能读写你名下所有仓库。个人自用可接受，若介意就用方式 1。
+
+---
+
+## 更新持仓（方法 A 的后续怎么改）
+
+`Lee878/dpa-holdings` 私有仓里的 `holdings.md` 就是持仓的「唯一真相来源」。要改持仓：
+
+1. 在浏览器打开 `https://github.com/Lee878/dpa-holdings`
+2. 点 `holdings.md` → 右上角铅笔图标 → 改内容（或直接本地改完 push）
+3. 提交（Commit）。下一次云端任务跑起来会自动拉到新持仓，**不用动任何 secret**。
+
+> 懒得自己改？直接跟我说「我买了/卖了 X」，我帮你改好本机 `config/holdings.md`，
+> 再把它同步（push）到这个私有仓即可。
+
+---
+
+## 其他可选方法（当前未启用，备用）
+
+### 方法 B（secret 直接存文本）
+不设 `HOLDINGS_REPO`/`HOLDINGS_TOKEN`，改设 `HOLDINGS_MD` = 本机 `config/holdings.md` 全文。
+bootstrap 会把它写成云端文件。更新方式见上「更新持仓」思路——改密文里那段文字。
+
+### 方法 C（发截图 AI 就地更新）
+在任务里发持仓截图，AI 读图后用 `scripts/holdings_update.py` 写回 `config/holdings.md`。
+**注意**：若云端沙箱每次任务都是全新环境（不保留 /workspace 文件），
+截图改的持仓下一次会丢失，必须配方法 A 作持久化兜底，或确认沙箱保留文件。

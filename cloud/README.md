@@ -37,11 +37,16 @@ WorkBuddy 的**云端沙箱**后，电脑关机、离线也能照常出报告，
 
 ### 2. 填 secrets（关键，见 SECRETS.md）
 在 CloudAgent 的 secrets 设置里填：
-- `HOLDINGS_MD` = 你本机 `config/holdings.md` 全文
+
+**持仓（方法 A：私有仓，已选）**
+- `HOLDINGS_REPO` = `github.com/Lee878/dpa-holdings.git`
+- `HOLDINGS_TOKEN` = 有该私有仓读取权限的 GitHub token（细粒度只读最安全，见 SECRETS.md）
+
+**推送通道**
 - `NOTIFY_JSON` = 你本机 `config/notify.json` 全文（含 Bark key）
 - `DELIVERY_JSON` = 你本机 `config/delivery.json` 全文（含 COS）
 
-三个都填好，云端才有你的真实持仓和推送通道。
+填好这四项，云端才有你的真实持仓和推送通道。持仓走私有仓、不进任何明文密文。
 
 ### 3. 连接 NeoData MCP
 云端任务靠 **NeoData MCP** 取行情/估值/财务/资金。确认 CloudAgent 已连接该连接器
@@ -71,7 +76,7 @@ WorkBuddy 的**云端沙箱**后，电脑关机、离线也能照常出报告，
 ## 四、验证（第一次务必跑）
 
 建好后，对每个任务点「立即运行」一次，重点看日志里有没有：
-- `[bootstrap] ✅ 已写入 config/holdings.md (from secret HOLDINGS_MD)` —— 说明持仓注入成功
+- `[bootstrap] ✅ 已从私有仓写入 config/holdings.md` —— 说明持仓从 `dpa-holdings` 私有仓拉取成功
 - `python3 .../scripts/release.py doctor` 全绿 —— 环境 OK
 - 任务结束手机收到 Bark 推送、点开能看到报告 HTML
 
@@ -81,8 +86,9 @@ WorkBuddy 的**云端沙箱**后，电脑关机、离线也能照常出报告，
 
 ## 五、持仓怎么更新
 
-见 `SECRETS.md` 的「更新持仓」。简言之：改 `HOLDINGS_MD` 那段文字 = 改持仓，
-下次任务自动生效。
+见 `SECRETS.md` 的「更新持仓（方法 A）」。简言之：直接改私有仓
+`Lee878/dpa-holdings` 里的 `holdings.md` 并提交，下一次云端任务自动拉新持仓，
+**不用改任何 secret**。
 
 ---
 
@@ -106,4 +112,5 @@ echo probe-$(date +%s) > /workspace/_probe.txt; cat /workspace/_probe.txt
 ## 七、与本机部署的关系
 
 - 云端部署**不影响**你本机已有的定时任务。若想彻底关机，把本机三个任务删掉/停用即可。
-- 公开仓库 `cloud/` 目录**不含任何隐私**；你的持仓和 key 只存在于云端 secrets 里。
+- 公开仓库 `cloud/` 目录**不含任何隐私**；你的持仓在私有仓 `Lee878/dpa-holdings`，
+  Bark/COS 配置只存在于云端 secrets 里。
