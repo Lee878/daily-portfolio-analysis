@@ -23,7 +23,7 @@
 
 1. **环境校验**
    `python "{{REPO_DIR}}/scripts/release.py" doctor` 必须全绿（语法 + 指纹 + 单元测试）。
-   不绿先 `release.py manifest` 重算指纹；仍不绿就停止，出《环境异常说明》。
+   不绿先 `scripts/release.py manifest` 重算指纹；仍不绿就停止，出《环境异常说明》。
 
 2. **取证 + 证据门**
    `python "{{REPO_DIR}}/scripts/run_daily.py" fetch --session noon --date <当日>`
@@ -38,7 +38,7 @@
 
 3. **四层分析 + 填 data.json**
    5 视角 → 多空强制辩论 → 三视角风控 → 终稿；每条论点挂**真实存在**的 `[dp/nw/ch-xxx]`。
-   按 data-schema 填一份紧凑 `data.json`（不写 builder、不写 HTML）。
+   按 data-schema 填一份紧凑 data.json（不写 builder、不写 HTML）。
    关注库默认**全部深度分析**；确需降级某只，单次运行加 `--brief TICKER`（不要改配置文件）。
 
 4. **出报告 + 报告门**
@@ -50,7 +50,7 @@
 5. **交付（三层）**
    - 桌面：`present_files` 打开带签名的 HTML（唯一主交付，无签名禁止交付）。
    - 手机：**Bark 通知 + App 阅读**（D-01/D-02 已定；邮件通道冻结，不要发邮件）。
-     `run_daily report` **已自动推送**（午间自动 `level=passive` 不响铃），不要再手动跑 `notify.py`。
+     `run_daily report` **已自动推送**（午间自动 `level=passive` 不响铃），不要再手动跑 `scripts/notify.py`。
      想带人话摘要就加 `--notify-summary "今日动作/到价提醒，≤2 句"`；排错时加 `--no-notify`。
      推送失败不影响本地交付，如实说明原因即可。
    - 微信：个人微信无开放接口，不自动发；需要时由用户把 HTML 拖进「文件传输助手」。

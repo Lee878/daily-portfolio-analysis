@@ -1,9 +1,12 @@
 ---
 name: daily-portfolio-analysis
 description: "深度持仓分析引擎。读取持仓档案，对每只持仓标的执行四层多角色辩论分析（5视角数据采集→多空强制辩论→三视角风控评估→基金经理终审），输出盘前/午间/盘后三时段深度报告。证据门禁：取证不达标禁止辩论、论点无证据ID禁止交付。当用户要求做每日持仓分析、盘前报告、午间总结、盘后总结、持仓操作建议、持仓诊断时使用。支持A股、港股、美股、基金多账户组合。"
-license: MIT
-version: 2.7.0
+description_zh: "深度持仓分析引擎：把每日持仓复盘做成带机械门禁的流程。取证不达标脚本直接阻断辩论，论点不挂证据 ID 报告门禁止交付，所有数字可追溯到证据文件。输出盘前 / 午间 / 盘后三时段 HTML 报告，深色默认、可切浅色。"
+description_en: "Evidence-gated daily portfolio analysis. Every number is traceable to an evidence file; the gates block delivery when sourcing falls short, so output quality does not decay over time. Produces pre-market, midday and post-market HTML reports with a dark-first, light-switchable theme."
+author: Lee878
+version: 2.10.0
 metadata:
+  license: MIT
   requires-python: ">=3.10"
   entrypoint: "scripts/run_daily.py"
   gates: "证据门 + 报告门（退出码 0/10/11/12）"
@@ -24,11 +27,11 @@ metadata:
 
 ## 核心原则
 
-1. **证据先行，门禁不可绕过**：先跑 `fetch_data.py` 生成证据文件，补证后过证据门，才能开始分析。证据门 FAIL 时禁止进入辩论，不得先写报告再补证据。
+1. **证据先行，门禁不可绕过**：先跑 `scripts/fetch_data.py` 生成证据文件，补证后过证据门，才能开始分析。证据门 FAIL 时禁止进入辩论，不得先写报告再补证据。
 2. **强制站队辩论**：多空研究员必须立场对立，禁止中立发言；**每条论点必须挂证据 ID**（`[dp-xxx]`/`[nw-xxx]`/`[ch-xxx]`）。
 3. **数字只来自两个地方**：holdings.md（持仓成本/数量）或证据 JSON。证据文件里没有的数字，不许出现在报告里。
 4. **证据分级**：P1-P4，P4（社媒/传闻）不能单独支撑论点；每条核心结论至少 1 条 P1/P2。详见 [evidence-standards.md](references/evidence-standards.md)。
-5. **覆盖率机械计算**：覆盖率以 `gate_check.py` 输出为唯一权威值，报告横幅照抄，禁止口述/估算/美化。
+5. **覆盖率机械计算**：覆盖率以 `scripts/gate_check.py` 输出为唯一权威值，报告横幅照抄，禁止口述/估算/美化。
 6. **反证优先**：每个核心判断附带"什么情况说明我错了"的证伪条件。
 7. **市场 Regime 前置**：先判 S0-S6 大环境，再做个股（见 market-models.md）。
 8. **用户偏好硬约束**：必含四维度（市场位置、环比同比、预期差、进场判断）。期权/VIX/IV/PCR 板块已按用户要求彻底移除，报告不再写期权策略方向。
@@ -60,8 +63,8 @@ python scripts/run_daily.py report --session <pre|noon|post> --date <日期> \
 # 兼容旧模式（新流程不用）：--builder scripts/build_report_<日期>.py 手写 builder
 ```
 
-> **数据驱动渲染（默认）**：agent 只按 `assets/data-schema.md` 填一份紧凑 `data.json`（纯文字+结构化卡片字段，内含证据ID），
-> `render_report.py` 读 assets 里固化的 CSS/免责/卡片壳/页面骨架出 HTML；**不手写 builder、不写 CSS、不复制模板文字**。
+> **数据驱动渲染（默认）**：agent 只按 `assets/data-schema.md` 填一份紧凑 data.json（纯文字+结构化卡片字段，内含证据ID），
+> `scripts/render_report.py` 读 assets 里固化的 CSS/免责/卡片壳/页面骨架出 HTML；**不手写 builder、不写 CSS、不复制模板文字**。
 > 固定层（CSS、免责、来源折叠、卡片壳）全部在 `assets/`，由脚本读取渲染，agent 不复制粘贴。
 
 物理保证（缺一不可）：
@@ -88,7 +91,7 @@ python scripts/run_daily.py report --session <pre|noon|post> --date <日期> \
 | 北向资金 | 同花顺沪深股通 | — | 当日累计净买入（万元） |
 | 美股期权 | CBOE | — | 期权 PCR（成交量/持仓量） |
 
-- 优先级链写在 `config/data-sources.json`（模板见 `config/data-sources.example.json`），**改配置即可换源，不用改脚本**。
+- 优先级链写在 config/data-sources.json（模板见 `config/data-sources.example.json`），**改配置即可换源，不用改脚本**。
 - 适配层只用标准库，**不装任何第三方包也能跑** A股/港股/美股（akshare/baostock 是可选的兜底）。
 - 东财在本机常被封 IP（`RemoteDisconnected`，绕代理也一样）：它只作补充，失败即降级并在 `gaps` 留痕，不要反复重试。
 - 每批次产物含字段级覆盖度报表 `coverage/<日期>_<时段>.json`：哪个字段一直取不到、该不该接新源，看这个。
@@ -102,14 +105,14 @@ python scripts/fetch_data.py --holdings <holdings.md> --session <pre|noon|post>
 ```
 
 - 必须先读 holdings.md（默认查找：`--holdings` → `$DAILY_HOLDINGS` → `./holdings.md`
-  → `config/holdings.md` → `./holdings.md`）。
+  → config/holdings.md → `./holdings.md`）。
 - 脚本解析持仓，批量拉取行情/估值/资金流/K线，机械计算 MA、52周分位、ATR、量比，
   生成 `daily-reports/evidence/<日期>_<时段>_<代码>.json`；拿不到的点显式标 `missing` 并列入 gaps。
 - 同时生成 `*_macro.json` 宏观骨架（quick 时段除外）。
 - akshare 未安装或网络不通时，脚本生成全 missing 骨架——**这不是失败，是给 agent 的明确待补清单**。
   本机代理拦截东方财富是常见原因（脚本会把报错写进 `gaps` 首条），此时改用 NeoData MCP 补证。
 
-#### 已清仓/卖出标的识别（机械规则，脚本强制，不靠自觉）
+### 已清仓/卖出标的识别（机械规则，脚本强制，不靠自觉）
 
 持仓表里以下两类标的**视为已清仓、不是持仓**，取证、证据、报告卡片一律不得包含：
 
@@ -183,7 +186,7 @@ python scripts/gate_check.py --report-root <daily-reports> --date <日期> \
 
 ### Step 5 填 data.json（渲染器出 HTML，MD 存档）
 
-- 按 [assets/data-schema.md](assets/data-schema.md) 填紧凑 `data.json`：meta/stats/regime/blocks/sources，
+- 按 [assets/data-schema.md](assets/data-schema.md) 填紧凑 data.json：meta/stats/regime/blocks/sources，
   卡片用结构化字段，渲染器套固化壳；分析细节参考 [output-templates.md](references/output-templates.md) 与
   [report-html-template.md](references/report-html-template.md)。
 - 每条多空论点末尾挂真实证据 ID，例：`铜库存连续三周下降，支撑铜价 [dp-007][nw-002]`。
@@ -204,19 +207,36 @@ P4 不得唯一支撑论点（超 2 条阻断）、信息来源折叠区/免责�
 
 ### Step 7 交付与存档
 
-- 交付前确认 HTML 含 `<meta name="daily-gate" ...>` 签名（由 `run_daily.py report` 写入）；**无签名 = 没走门禁，禁止交付**。
+- 交付前确认 HTML 含 `<meta name="daily-gate" ...>` 签名（由 `scripts/run_daily.py report` 写入）；**无签名 = 没走门禁，禁止交付**。
   签名有两种：`content="PASS …"` 是双门全过；`content="DEGRADED …"` 是降级交付（**可交付，但正文必须照实说缺口**）。
 - **只交付 HTML 单文件**（桌面 present_files 预览 + 手机 Bark 通知 → App 打开看全文）；MD 与证据 JSON 存档 `data/daily-reports/`（跨报告对账依据，不要删）。
 - 手机侧**不发邮件**（D-02 已冻结；Agent 邮箱本身 `not_bound`）。推送由 `run_daily report`
-  **自动完成**（PASS/DEGRADED 都发，FAIL 走 `timeSensitive` 告警），不需要 agent 手动调 `notify.py`；
-  要带人话摘要加 `--notify-summary`，排错加 `--no-notify`。`notify.py` 只用于手动补发或单独告警。
+  **自动完成**（PASS/DEGRADED 都发，FAIL 走 `timeSensitive` 告警），不需要 agent 手动调 `scripts/notify.py`；
+  要带人话摘要加 `--notify-summary`，排错加 `--no-notify`。`scripts/notify.py` 只用于手动补发或单独告警。
   App 已实测可渲染报告 HTML（RK-01 关闭），所以通知只叫醒、全文在 App 内看。
 - 口头总结：Regime、机械覆盖率、综合建议、Top3 多空理由、买入区间、核心风险。
+
+## 持仓更新（用户丢截图时，随时可用）
+
+用户随时可能发来券商 App 持仓截图（银河 / 盈立 / 蚂蚁）。**不要手工改 holdings.md**，走固定管线：
+
+1. **读图**：从截图抽取该账户该市场的持仓，产出符合 assets/holdings-snapshot-schema.md 的快照 JSON。
+   只保证 `name / code / qty / cost / last` 即可（派生值脚本会算）；基金用 `name / amount / pnl`。
+   **只抽截图里实际显示的行**，没显示的不写进快照。
+2. **预览**（默认只读不写）：
+   `python scripts/holdings_update.py --snapshot <快照.json>`
+   把变更清单给用户看：新增 / 数量变化 / 成本变化 / 现价更新 / **截图未包含（待确认）**。
+3. **确认后写回**：用户点头才加 `--apply`。
+   截图里没出现、但用户确认已卖出的，用 `--mark-cleared <ticker>` 显式标清仓——**绝不自作主张清仓**。
+4. 写前自动备份到 `config/.holdings-backup/`；出错可 `--restore` 还原。
+
+脚本机械校验 `数量 × 现价 ≈ 市值`（偏差 > 3% 直接拒绝写入，防 OCR 数字错读），
+并复用 `fetch_data` 的解析口径，保证「更新」与「取数」永远一致。
 
 ## 快速诊断（轻量模式）
 
 用户随手问单只"XX 怎么样"：
-`fetch_data.py --session quick --tickers <代码>` → 补关键证据 → 证据门（quick 放宽新闻/产业链为警告）
+`scripts/fetch_data.py --session quick --tickers <代码>` → 补关键证据 → 证据门（quick 放宽新闻/产业链为警告）
 → 简化辩论 → 结论。即使 quick，**价格硬必需和论点挂 ID 不放松**。
 
 ## 工作流路由
@@ -298,8 +318,8 @@ python3 $ENG/scripts/reuse_evidence.py --report-root <daily-reports> --date <日
 
 | 文件 | 命名 | 处理 |
 |---|---|---|
-| 可视化 HTML | `YYYY-MM-DD-盘前报告-可视化.html` 等 | **唯一主交付**，单文件自包含 |
-| 报告正文 MD | `YYYY-MM-DD-盘前报告.md` 等 | 存档，不 present |
+| 可视化 HTML | YYYY-MM-DD-盘前报告-可视化.html 等 | **唯一主交付**，单文件自包含 |
+| 报告正文 MD | YYYY-MM-DD-盘前报告.md 等 | 存档，不 present |
 | 证据文件 | `evidence/<日期>_<时段>_<代码>.json`、`*_macro.json` | 存档，对账依据，不 present |
 
 HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠、证据脚注、板块卡、信息来源折叠区）全部移到
@@ -313,7 +333,7 @@ HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠�
 
 **和"观察名单"的区别**：观察名单每次临时列 2-3 只、不持久、不写目标价；关注库是**持久化**的一张表，收录"目前未持有、此前高位卖出、想等低位接回"的票，每条带**明确目标接回价、计划股数、止损**，到价即在报告里标红并给执行清单。
 
-**文件（与 holdings 同级，默认在 `config/`）**：`watchlist.md`
+**文件（与 holdings 同级，默认在 `config/`）**：watchlist.md
 列顺序固定（脚本机械解析，勿改列序）：名称｜代码｜市场｜目标接回价｜计划股数｜预计金额｜止损价(-15%)｜加入日期｜状态｜逻辑/备注。
 
 **分析时点（跟随下一个开盘市场）**：
@@ -323,9 +343,9 @@ HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠�
 
 **深度范围（v2.4.0 语义反转，重要）**：
 - **默认：该时段对应市场的关注标的全部深度分析**——和持仓同标准走证据门；
-- 只有写进 `config/watchlist_brief.json` 对应时段数组的 ticker 才降级为"简列"（只在关注库总览表列示现价/目标价，不要求多空/产业链/独立卡片）；
-- 单次临时降级：`run_daily.py ... --brief SNDK,KO`（不影响文件，下次自动恢复）；
-- 旧文件 `watchlist_depth.json`（深度白名单）**已废弃**：仍存在时被忽略并打印提示，请删除或改名为 `.bak`。
+- 只有写进 config/watchlist_brief.json 对应时段数组的 ticker 才降级为"简列"（只在关注库总览表列示现价/目标价，不要求多空/产业链/独立卡片）；
+- 单次临时降级：`scripts/run_daily.py ... --brief SNDK,KO`（不影响文件，下次自动恢复）；
+- 旧文件 watchlist_depth.json（深度白名单）**已废弃**：仍存在时被忽略并打印提示，请删除或改名为 `.bak`。
 - 降级是逃生口，不是常态。数据源全挂时宁可降级并在报告里明说，也不要为了凑深度编数据。
 
 **每条关注标的的分析要求（专家视角，数据必须真实）**：
@@ -363,6 +383,7 @@ HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠�
 | 各时段输出模板 | `references/output-templates.md` |
 | HTML 视觉与布局规范 | `references/report-html-template.md` |
 | 数据驱动渲染：data.json 填写规范 | `assets/data-schema.md` |
+| 持仓截图 → holdings.md：快照契约与更新脚本 | assets/holdings-snapshot-schema.md |
 | 合规边界 | `references/risk-compliance.md` |
 | 门禁回归测试与场景用例 | `references/test-cases.md`、`tests/test_gate.py` |
 
@@ -372,7 +393,7 @@ HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠�
 没有第二个"运行时副本"，也不需要在多台机器之间同步。旧版的 `/runtime` 与 `DAILY_RT` 已移除。
 
 - 仓库根 = skill 根：目录名不必等于 `daily-portfolio-analysis`，但安装到 WorkBuddy 时必须叫这个名字
-  （skill 规范要求 `frontmatter.name` 与目录名一致）。
+  （skill 规范要求 frontmatter.name 与目录名一致）。
 - 安装/更新技能副本：`python scripts/install_skill.py`（robocopy 增量同步，排除 `config/ data/ .git/ .archive/`）；
   只检查不写入：`--check`。
 - 数据与代码分开放：代码入库（git），`config/` 与 `data/` 不入库，换电脑单独拷贝。

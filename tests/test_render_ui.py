@@ -191,6 +191,64 @@ class TestInjectionHelpers(unittest.TestCase):
                 f"CSS 注释里出现了尖括号标签，会被注入正则命中：{block[:60]}")
 
 
+class TestThemeIdCountStable(unittest.TestCase):
+    """主题改造不得让门禁的证据引用计数漂移。
+
+    深浅两版是同一份 data.json 的两次渲染，主题只改根元素上的 data-theme。
+    门禁按 `[dp|nw|ch-xxx]` 计数，计数一变就说明有人在版式里动了证据引用
+    ——这类改动不报错，只是结论错（多空同源、引用不足、重复凑数）。
+    """
+
+    def test_dark_and_light_products_have_equal_gate_id_counts(self):
+        """AC-21：深浅两版产物的门禁 ID 计数完全相等。"""
+        dark = render()
+        light = dark.replace('<html lang="zh" data-theme="dark">',
+                             '<html lang="zh" data-theme="light">', 1)
+        self.assertNotEqual(dark, light, "深浅两版产物应只有主题属性不同")
+
+        for label, html in (("深色", dark), ("浅色", light)):
+            ids = gate.ID_RE.findall(html)
+            self.assertGreaterEqual(len(ids), 6,
+                                    f"{label}版证据引用总数不足，门禁会判证据不足")
+            self.assertEqual(
+                sorted(ids), sorted(gate.ID_RE.findall(
+                    light if label == "深色" else dark)),
+                f"{label}版与其他版本的证据 ID 序列不一致——主题改造动了证据引用")
+
+    def test_injected_elements_take_color_from_css_vars(self):
+        """AC-28：注入元素取色来源是 var(--...)，不残留写死浅色值。
+
+        写死的浅色值叠到深色页面上会糊成一片（深红字对深底对比度 1.5:1），
+        用户根本看不见告警。断言的是"取色来源"，不是"看起来对不对"。
+        """
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "r.html"
+            p.write_text(render(), encoding="utf-8")
+            rd._apply_degrade(p, ["缺口一", "缺口二"], 0.62)
+            rd._inject_version_footer(p, 0.62, "PASS")
+            text = p.read_text(encoding="utf-8")
+
+        banner = re.search(r'<div id="degrade-banner".*?<!--/degrade-->', text, re.S)
+        self.assertIsNotNone(banner, "没找到降级横幅")
+        footer = re.search(r'<footer id="daily-version-footer".*?</footer>', text, re.S)
+        self.assertIsNotNone(footer, "没找到版本页脚")
+
+        for label, blob in (("降级横幅", banner.group(0)),
+                            ("版本页脚", footer.group(0)),
+                            ("证据徽标", rd.BADGE_CSS)):
+            for hexv in ("#fdf2f0", "#7d2f28", "#a3261f", "#e2ded4",
+                         "#6c727b", "#989ea6", "#8f6119"):
+                self.assertNotIn(hexv, blob,
+                                 f"{label}残留写死浅色值 {hexv}——深色主题下会看不见")
+        self.assertIn("var(--warn-bg)", banner.group(0),
+                      "降级横幅背景未改用 var(--warn-bg)")
+        self.assertIn("var(--ink3)", footer.group(0),
+                      "版本页脚未改用 var(--ink3)")
+        self.assertIn("var(--ink4)", rd.BADGE_CSS,
+                      "证据徽标未改用 var(--ink4)")
+
+
 class TestEvidenceBucket(unittest.TestCase):
     """证据按标的分桶：全局 dict 会让后写覆盖先写，来源链接指错标的。"""
 

@@ -40,7 +40,7 @@ python scripts/gate_check.py --report-root <daily-reports> --date <日期> \
 
 ## 第〇·五层：取证与证据门（不可跳过）
 
-1. `scripts/fetch_data.py` 批量拉取行情/估值/技术指标，生成每只持仓的证据 JSON 骨架。
+1. scripts/fetch_data.py 批量拉取行情/估值/技术指标，生成每只持仓的证据 JSON 骨架。
 2. 五个视角的分析师把采集结果**写入同一份证据 JSON**（data_points / news / chain_notes），
    每条含来源、URL、时间、证据级别；查不到的标 missing 并进 gaps。
 3. 运行证据门：**FAIL 禁止开始第一层分析**；50-69% 只给定性结论；<50% 需显式降级。
@@ -304,6 +304,6 @@ SEI衰竭指数：[X分] —— [动能充沛/良性分歧/严重衰竭/全面�
 每个核心判断必须标注证据强度（P1/P2/P3/P4）并挂证据 ID，详见
 [evidence-standards.md](evidence-standards.md)。终审输出的操作建议（加/减/观望、仓位、
 止损、目标）必须由至少 2 个不同维度的 ID 支撑；若支撑不足，降级为"待验证"而不是硬给建议。
-终审后运行报告门（`gate_check.py --stage report`），FAIL 不得交付。
+终审后运行报告门（`../scripts/gate_check.py --stage report`），FAIL 不得交付。
 
 详细输出模板见 [output-templates.md](output-templates.md)。

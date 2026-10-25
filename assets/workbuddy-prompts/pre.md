@@ -23,7 +23,7 @@
 
 1. **环境校验**
    `python "{{REPO_DIR}}/scripts/release.py" doctor` 必须全绿（语法 + 指纹 + 单元测试）。
-   不绿先 `release.py manifest` 重算指纹；仍不绿就停止，出《环境异常说明》。
+   不绿先 `scripts/release.py manifest` 重算指纹；仍不绿就停止，出《环境异常说明》。
 
 2. **取证 + 证据门**
    `python "{{REPO_DIR}}/scripts/run_daily.py" fetch --session pre --date <当日>`
@@ -37,8 +37,24 @@
    - 退出码 **11** = 覆盖率 <50%：只有客观数据源全挂时才加 `--allow-degraded`，且报告必须挂"数据不足"横幅、只给定性判断。
 
 3. **四层分析 + 填 data.json**
+   动手前先 Read `{{REPO_DIR}}/config/debate.json`；读不到就按模板 `{{REPO_DIR}}/config/debate.example.json` 走 **isolated**。
+   **先净化输入（不跑这步就不许开子代理）**：
+   `python "{{REPO_DIR}}/scripts/debate_input.py" --evidence <该标的证据JSON> --out "{{REPO_DIR}}/data/daily-reports/debate-input"`
+   它会剥掉 holding 里的 cost 与 quantity 字段、account（券商名）、planned，只留行情、新闻、产业链与缺口。
+   子代理**只允许读净化后的 `<ticker>.debate.json`**，**禁止读 `evidence/` 原件**
+   —— 原件写着成本和券商名，模型一看就知道这是你持有的标的，结论会系统性偏向"继续持有"。
+   跑完用 `--verify <目录>` 复核一遍，exit 0 才能进入下一步。
+   **isolated（盘前盘后默认，标的 ≥8 只）——每只标的分别开两个独立子代理**：
+   - 子代理 A（多方）：只给这只标的**净化后**的文件路径 + 多头角色指令。
+     **不提你已经持有、成本多少、浮盈亏多少**；也不告诉它后面还有空方。
+   - 子代理 B（空方）：同样只给证据 + 空头角色指令。**绝不把 A 的输出给它**，
+     也不给它其他标的的任何内容（否则会横向锚定，比如前一只刚论证行业景气向上，这只的空方就不敢唱反调）。
+   - 收回 A、B 两份文本后由**你**做交叉质询 → 三视角风控 → 终审。
+     **成本与盈亏只在这一步代入**，用于判断加 / 减 / 保持，不用来判断好 / 坏。
+   **inline（仅午间 ≤5 只）**：同一上下文内先多方后空方；即便如此，辩论段落也不要写持仓成本。
+   完整流程、禁止项与自检方法见 `{{REPO_DIR}}/references/debate-protocol.md`。
    5 视角 → 多空强制辩论 → 三视角风控 → 终稿；每条论点挂**真实存在**的 `[dp/nw/ch-xxx]`。
-   按 data-schema 填一份紧凑 `data.json`（不写 builder、不写 HTML）。
+   按 data-schema 填一份紧凑 data.json（不写 builder、不写 HTML）。
    关注库默认**全部深度分析**；确需降级某只，单次运行加 `--brief TICKER`（不要改配置文件）。
 
 4. **出报告 + 报告门**
@@ -50,7 +66,7 @@
 5. **交付（三层）**
    - 桌面：`present_files` 打开带签名的 HTML（唯一主交付，无签名禁止交付）。
    - 手机：**Bark 通知 + App 阅读**（D-01/D-02 已定；邮件通道冻结，不要发邮件）。
-     `run_daily report` **已自动推送**（PASS 与 DEGRADED 都会发），不要再手动跑 `notify.py`，会重复。
+     `run_daily report` **已自动推送**（PASS 与 DEGRADED 都会发），不要再手动跑 `scripts/notify.py`，会重复。
      想让通知带上人话摘要，就在 report 命令后加 `--notify-summary "今日动作/到价提醒，≤2 句"`。
      排错或回放时加 `--no-notify` 关掉推送。
      推送失败不影响本地交付，如实说明原因即可。

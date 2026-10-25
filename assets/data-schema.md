@@ -1,7 +1,7 @@
 # data.json 填写规范（数据驱动渲染）v2.4.0
 
-每轮报告**不写 HTML、不写 CSS、不写卡片函数**，只填一份紧凑 `data.json`；
-`scripts/render_report.py` 套固定壳渲染。门禁仍由 `gate_check.py` 机械校验。
+每轮报告**不写 HTML、不写 CSS、不写卡片函数**，只填一份紧凑 data.json；
+`scripts/render_report.py` 套固定壳渲染。门禁仍由 `scripts/gate_check.py` 机械校验。
 
 **只填文字与结构化字段，证据 ID 直接写在文字里**，如 `[dp-001]`。
 
@@ -26,9 +26,9 @@
 ```
 
 - `coverage` 填 gate 的机械值；`run_daily` 会再校准，不必精确到小数。
-- `stats.cls`：`up` 涨（红）/ `down` 跌（绿）/ `b` 蓝 / `y` 黄。
+- stats.cls：`up` 涨（红）/ `down` 跌（绿）/ `b` 蓝 / `y` 黄。
   历史写法 `g`（涨）/ `r`（跌）仍然有效（渲染器自动映射）。
-- `sources.url` 必须是可点开的具体文章页，禁止首页/栏目页；pre/post ≥4 条、noon ≥3 条。
+- sources.url 必须是可点开的具体文章页，禁止首页/栏目页；pre/post ≥4 条、noon ≥3 条。
 - 顶栏摘要、锚点目录、证据清单**由渲染器自动生成**，不要手工写。
 
 ---
@@ -109,7 +109,7 @@
 | 折叠 | 市场位置/共识/证伪/证据默认收起；**桌面 ≥900px 自动全展开** |
 | 证据清单 | 每张卡底部列 ID + 级别 + 来源 + 可点链接 |
 | 表格适配 | 窄屏自动堆叠并显示列名 |
-| 免责 / 版本条 / 门禁签名 | 由 `run_daily.py` 注入 |
+| 免责 / 版本条 / 门禁签名 | 由 `scripts/run_daily.py` 注入 |
 
 ---
 

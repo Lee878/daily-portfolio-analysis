@@ -1,6 +1,6 @@
 # MCP 取数手册（NeoData）
 
-补证阶段的首选取数通道。**为什么需要它**：本机代理/DNS 常拦截东方财富（`push2.eastmoney.com`
+补证阶段的首选取数通道。**为什么需要它**：本机代理/DNS 常拦截东方财富（push2.eastmoney.com
 返回 ProxyError 或 RemoteDisconnected），此时 `akshare` 全线失败，但 MCP 走平台侧通道，
 不受本机网络策略影响。
 
@@ -12,10 +12,10 @@
 |---|---|---|---|
 | `price_last` | technical | `quote_and_kline` | 最新一条**有效** `kline_list[].close` |
 | `day_change_pct` | technical | `quote_and_kline` | 同一条的 `pct_change` |
-| `ma5` `ma20` `ma60` | technical | `derive_indicators.py` | 用 K 线自算（见 §3） |
-| `range_52w_pct` | technical | `derive_indicators.py` | 同上 |
-| `atr14` | technical | `derive_indicators.py` | 同上 |
-| `volume_ratio` | technical | `derive_indicators.py` | 同上 |
+| `ma5` `ma20` `ma60` | technical | derive_indicators.py | 用 K 线自算（见 §3） |
+| `range_52w_pct` | technical | derive_indicators.py | 同上 |
+| `atr14` | technical | derive_indicators.py | 同上 |
+| `volume_ratio` | technical | derive_indicators.py | 同上 |
 | `pe_ttm` | fundamental | `valuation` | A 股 `realtime_pe_ttm`；港股取 `history[-1].pe_ttm` |
 | `pb` | fundamental | `valuation` | A 股 `realtime_pb`；港股 `history[-1].pb_lf` |
 | `market_cap` | fundamental | `valuation` | `total_market_cap` ÷ 1e8 → **亿元** |
@@ -30,15 +30,15 @@
 
 | 字段 | 状态 | 处理 |
 |---|---|---|
-| `north_south_flow` | ~~无~~ → **脚本直取** | v2.6.0 起由 `scripts/adapters/north.py` 取（`fetch_data` 自动调用，单位万元）。**不要再写 gaps**，除非适配器明确报失败 |
-| `put_call_or_inst`（美股 flow） | ~~无~~ → **脚本直取 PCR** | v2.6.0 起 `adapters/cboe.py` 给 `pcr_volume` / `pcr_oi` / `contracts`；机构持仓仍走搜索 |
+| `north_south_flow` | ~~无~~ → **脚本直取** | v2.6.0 起由 scripts/adapters/north.py 取（`fetch_data` 自动调用，单位万元）。**不要再写 gaps**，除非适配器明确报失败 |
+| `put_call_or_inst`（美股 flow） | ~~无~~ → **脚本直取 PCR** | v2.6.0 起 adapters/cboe.py 给 `pcr_volume` / `pcr_oi` / `contracts`；机构持仓仍走搜索 |
 | 基金：`fund_scale_change`、`manager_change`、`top_holdings` | **无** | `fund_nav` 只给净值；这三项走基金公司官网/天天基金/搜索 |
 | 基金：`nav_latest`、`nav_change_pct`、`nav_position_pct_1y` | 可用 | 见 §8 |
 | `atr14` / `range_52w_pct` / `volume_ratio` | 需派生 | 见 §3，不许目测估计 |
 
 > 判断顺序：先看 `fetch_data` 已经把哪些字段灌进证据文件了（适配层出的点在 `source` 里写
 > `tencent:` / `sina:` / `eastmoney:` / `north:` / `cboe:`），**只补还空着的**。
-> 完整的层间分工见 `references/data-sources.md`。
+> 完整的层间分工见 references/data-sources.md。
 
 ## 3. 三个派生指标：用脚本算，不许心算
 
@@ -67,14 +67,14 @@ python scripts/derive_indicators.py --mcp k1.json --mcp k2.json --ticker 601899.
    "省略中间历史行情……"。单次有效行约 20 根。取 52 周行情要**分 10-13 段取**，
    每段约 20 个交易日，再用 `--mcp` 多文件合并。
 3. **占位行**：非交易日/未开盘行 `close` 是 `"-"`，整行剔除（脚本已处理）。
-4. **代码必须带市场后缀**：`601899.SH` / `00700.HK` / `NVDA.US`。基金、ETF 无对应后缀。
+4. **代码必须带市场后缀**：601899.SH / 00700.HK / NVDA.US。基金、ETF 无对应后缀。
 5. **A 股财务指标要累计报告期**：`fiscal_period` 用 `2026-H1` / `2026-9M` / `2026-FY`。
    传 `2026-Q2` 这类单季报**不返回 roe**（实测：Q2 只有 roic）。
-6. **港股报告期枚举不同**：只有 `Q1/H2/9M/FY`，没有 Q2/Q3/Q4。
+6. **港股报告期枚举不同**：只有 Q1/H2/9M/FY，没有 Q2/Q3/Q4。
 7. **港股估值快照可能缺 `pe_ttm`**：实时快照只有 `pe_lyr`，PE/PB 取 `history[-1]`。
 8. **`valuation` 和 `fund_flow` 都不支持美股**。
 9. **`technical` 的 `tech_data` 可能滞后**（实测 10-21 却只到 10-08），均线一律用
-   K 线自算，不要直接抄 `tech_data.ma5`。
+   K 线自算，不要直接抄 tech_data.ma5。
 10. **`fund_nav` 的 `limit` 是总条数，不是每只条数**：4 只基金传 `limit=2` 只会回来 2 条
     （实测少了两只基金，且不报错）。查 N 只基金时 `limit` 至少给 N 的倍数，
     例如 4 只 × 3 天 → `limit=20`。
@@ -96,7 +96,7 @@ python scripts/derive_indicators.py --mcp k1.json --mcp k2.json --ticker 601899.
 | 3 | `valuation` A 股+港股批量 | PE/PB/市值 |
 | 4 | `financial_indicators` A 股 `H1`、港股 `H2`、美股 `Q2` 各一次 | ROE/增速 |
 | 5 | `fund_flow` A 股+港股批量 | 主力净流入 |
-| 6 | `derive_indicators.py` 逐只跑（合并多段 K 线） | 三个派生指标 |
+| 6 | derive_indicators.py 逐只跑（合并多段 K 线） | 三个派生指标 |
 
 新闻与产业链**不走 MCP**，照旧用搜索工具，`url` 必须是可访问的具体文章页。
 
@@ -108,7 +108,7 @@ MCP 取到的数据点写 `source: "neodata:<tool>"`、`fetched_by: "agent"`、`
 
 ## 8. 基金（场外 .OF）
 
-`fund_nav` 支持场外公募基金，代码后缀 `.OF`（例：`000217.OF`）。实测 4 只联接基金全部取到。
+`fund_nav` 支持场外公募基金，代码后缀 `.OF`（例：000217.OF）。实测 4 只联接基金全部取到。
 
 ```bash
 # 拉净值：limit 给足（见坑 10），output_fields 裁掉无用阶段收益

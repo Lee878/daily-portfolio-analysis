@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daily-portfolio-analysis"
-version = "2.7.0"
+version = "2.10.0"
 description = "带机械双门禁的每日持仓分析 skill（证据门 + 报告门）"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -5,6 +5,7 @@
    - 标题用衬线、正文用无衬线，靠字体对比建立层级（而非色块）
    - 红涨绿跌沿用 A 股习惯；涨跌色只给文字，不做背景填充
    - 证据不再内联成灰底方块，改成论文式上标脚注，明细收进卡底折叠
+   深色主题：深色块只整体覆盖同名变量，浅色 :root 是版式基准，不动。
    ========================================================================== */
 
 :root{
@@ -12,16 +13,40 @@
   --paper:#ffffff;
   --ink:#15181d;
   --ink2:#454d59;
-  --ink3:#6c727b;      /* 辅助正文 4.7:1 过 WCAG AA */
+  --ink3:#6c727b;      /* 辅助正文 4.61:1（对 --bg）过 WCAG AA，余量仅 0.11 */
   --ink4:#989ea6;      /* 纯装饰，不承载正文 */
   --rule:#e2ded4;
   --rule2:#eeebe3;
   --rise:#c0392b;      /* 涨 */
   --fall:#16704a;      /* 跌 */
-  --gold:#8f6119;      /* 4.72:1 过 AA */
+  --gold:#8f6119;      /* 5.13:1（对 --bg）过 AA */
   --accent:#1c4b78;
+  --warn-bg:#fdf2f0;
+  --warn-fg:#7d2f28;
+  --warn-strong:#a3261f;
+  --warn-rule:#f0c2bd;
   --serif:'Songti SC','Noto Serif CJK SC','Source Han Serif SC','SimSun',Georgia,serif;
   --mono:ui-monospace,Menlo,Consolas,'SF Mono',monospace;
+}
+
+/* ---------- 深色主题：只覆盖同名变量，浅色 :root 保持基准 ---------- */
+[data-theme="dark"]{
+  --bg:#0f1419;
+  --paper:#161b22;
+  --ink:#e6edf3;
+  --ink2:#b3c0cd;
+  --ink3:#8b98a5;
+  --ink4:#6b7681;
+  --rule:#21262d;
+  --rule2:#1a2027;
+  --rise:#ff6b5e;
+  --fall:#3fb950;
+  --gold:#e3b341;
+  --accent:#58a6ff;
+  --warn-bg:#2a1a1c;
+  --warn-fg:#f0b3ad;
+  --warn-strong:#ff9d92;
+  --warn-rule:#4a2f2c;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -70,6 +95,17 @@ sup.evm{
   font-family:var(--serif);font-size:30px;line-height:1.3;font-weight:600;
   letter-spacing:.005em;margin:14px 0 0;color:var(--ink);
 }
+
+/* ---------- 主题切换按钮 ---------- */
+.tbtn{
+  flex:0 0 auto;width:30px;height:30px;padding:0;margin-left:10px;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:transparent;border:1px solid var(--rule);border-radius:6px;
+  color:var(--ink2);cursor:pointer;line-height:1;
+}
+.tbtn:hover{color:var(--ink);border-color:var(--ink3)}
+.tbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tbtn svg{width:15px;height:15px;fill:currentColor;display:block}
 
 /* 大势：默认 3 行 + 读全文（纯 CSS 折叠，App/微信内也能用） */
 .rfold{margin:16px 0 20px;border-bottom:1px solid var(--rule2);padding-bottom:14px}

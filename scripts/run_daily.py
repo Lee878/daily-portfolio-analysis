@@ -207,7 +207,7 @@ def _inject_version_footer(html: Path, coverage: float, status: str = "PASS"):
     gate_txt = "双门禁 PASS" if status == "PASS" else "报告门未过·降级交付"
     footer = (
         '<footer id="daily-version-footer" style="margin:18px 0 6px;padding-top:12px;'
-        'border-top:1px solid #e2ded4;text-align:center;font-size:11px;color:#6c727b;'
+        'border-top:1px solid var(--rule);text-align:center;font-size:11px;color:var(--ink3);'
         'line-height:1.7;font-family:ui-monospace,Menlo,Consolas,monospace;">'
         f'引擎 v{version} · 构建 {build} · {gate_txt} · 覆盖率 {round(coverage*100,1)}%<br>'
         '本报告由确定性脚本门禁产出，不构成投资建议，决策与后果由用户自行承担。'
@@ -250,21 +250,27 @@ def _apply_degrade(html: Path, problems, coverage: float) -> int:
     rest = len(problems) - len(shown)
     if rest > 0:
         items += f"<li>…另有 {rest} 项</li>"
+    # v2.8.0：横幅配色改走 assets/style.css 的告警四件套
+    #   --warn-bg / --warn-fg / --warn-strong / --warn-rule，跟随深浅双主题。
+    #   原先写死的是浅色主题的粉底 + 深红字 + 浅粉描边，叠到深色页面上
+    #   成了"看不见的红块"（深红字对深底对比度不足），用户看不见告警。
+    #   刻意不用 --rise 当底色：--rise 是"上涨/告警红"语义色，
+    #   深色下是亮红，当底色时正文对比度只有 1.51:1，严重不达标。
     banner = (
         '<div id="degrade-banner" style="margin:0 0 0;padding:12px 14px;'
-        'border:0;border-bottom:1px solid #f0c2bd;border-left:0;'
-        'background:#fdf2f0;color:#7d2f28;font-size:13.5px;line-height:1.6">'
-        '<div style="font-weight:700;font-size:15px;color:#a3261f">'
+        'border:0;border-bottom:1px solid var(--warn-rule);border-left:0;'
+        'background:var(--warn-bg);color:var(--warn-fg);font-size:13.5px;line-height:1.6">'
+        '<div style="font-weight:700;font-size:15px;color:var(--warn-strong)">'
         '⚠ 数据不全 · 本报告未通过报告门</div>'
-        f'<div style="margin-top:4px;color:#7d2f28">覆盖率 {round(coverage * 100, 1)}%'
+        f'<div style="margin-top:4px;color:var(--warn-fg)">覆盖率 {round(coverage * 100, 1)}%'
         f' · {len(problems)} 项问题 · 已按降级交付</div>'
         # 问题清单默认收起：二十来项铺在首屏会把报告挤到第二屏之外，
         # 缺口"存在且可查"才是重点，逐条细读是排查时才做的事。
         '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12.5px;'
-        f'color:#a3261f">查看 {len(problems)} 项问题 ↓</summary>'
-        f'<ul style="margin:6px 0 0 18px;padding:0;color:#7d2f28">{items}</ul>'
+        f'color:var(--warn-strong)">查看 {len(problems)} 项问题 ↓</summary>'
+        f'<ul style="margin:6px 0 0 18px;padding:0;color:var(--warn-fg)">{items}</ul>'
         '</details>'
-        '<div style="margin-top:8px;color:#7d2f28">涉及缺口的数据点已在证据清单中标注；'
+        '<div style="margin-top:8px;color:var(--warn-fg)">涉及缺口的数据点已在证据清单中标注；'
         '结论仅作参考，不构成投资建议。</div>'
         '</div><!--/degrade-->')
     text = _inject_into_body(text, banner)
@@ -277,12 +283,23 @@ def _apply_degrade(html: Path, problems, coverage: float) -> int:
 # 在此一并统一配色（本样式注入在 builder CSS 之后，同特异性下生效）。
 # v2.7.0：版式改为浅色 Brief，徽标从"填充小方块"改成上标脚注；
 # P4 弱证据仍用琥珀色虚线，提醒不可单独成论。
+# v2.8.0：全部改 var() 引用，跟随 assets/style.css 的深浅双主题。
+#   · 文字色一律走语义 token（--ink4/--ink3/--gold），不再写死浅色值——
+#     写死的浅金在深色底上只有约 2.3:1，深色下徽标文字会看不见。
+#   · P4 描边用 var(--gold-line)（style.css 深浅两块各自给值）：
+#     浅色是 v2.7.0 写死值 rgba(143,97,25,.55) 逐字沿用 -> 浅色渲染零变化；
+#     深色是深色 --gold 的等效半透明，叠在深底上不再"糊成一片"（旧写死值
+#     叠到深底只有约 1.84:1，描边直接消失）。
+#     文字色与描边色分两个 token：--gold 管"这个徽标是琥珀色"，
+#     --gold-line 管"描边该画多淡"，两者语义不同，不该共用一个值。
+#     不用 color-mix()：产物是发给用户的本地静态 HTML，浏览器版本不可控，
+#     老浏览器上 color-mix() 不支持会让整条声明被丢弃、描边无声消失且无 fallback。
 BADGE_CSS = (
     ".rb,.b{display:inline;font-family:ui-monospace,Menlo,Consolas,monospace;"
-    "font-size:9.5px;font-weight:400;line-height:1;color:#989ea6;"
+    "font-size:9.5px;font-weight:400;line-height:1;color:var(--ink4);"
     "vertical-align:super;white-space:nowrap}"
-    ".rb.p1,.rb.p2,.b.p1,.b.p2{color:#6c727b}"
-    ".rb.p4,.b.p4{color:#8f6119;border-bottom:1px dashed rgba(143,97,25,.55)}"
+    ".rb.p1,.rb.p2,.b.p1,.b.p2{color:var(--ink3)}"
+    ".rb.p4,.b.p4{color:var(--gold);border-bottom:1px dashed var(--gold-line)}"
 )
 _EXISTING_BADGE_RE = re.compile(r'<span class="b [^"]*"[^>]*>.*?</span>', re.S)
 

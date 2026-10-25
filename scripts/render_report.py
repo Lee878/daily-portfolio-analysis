@@ -549,6 +549,108 @@ CARD_FN = {
 
 
 # ---------------------------------------------------------------------------
+# 主题（深/浅双主题）
+# ---------------------------------------------------------------------------
+# 硬约束（AC-26，门禁隔离）：
+#   * 脚本与控件全文不得出现 dp- / nw- / ch- 片段——门禁按这些模式统计证据 ID
+#   * 脚本内不得出现裸方括号（可见文本不得有裸方括号）→ 连属性选择器也要避开
+#   * 控件不得用 <details> / <summary>（会被当成来源折叠区，破坏门禁切分）
+# 存储键 dpa-theme：dpa 不含 dp- 片段（dpa ≠ dp-），不会被门禁误计为证据 ID。
+THEME_KEY = "dpa-theme"
+THEME_DARK_BG = "#0f1419"
+THEME_LIGHT_BG = "#faf9f6"
+
+# 图标：描边太阳 / 月亮（Feather 风格，24 视窗）。描边用 currentColor，
+# 随 --ink2 随主题变色；不填色则太阳会糊成一个实心圆饼。
+THEME_SUN_PATH = ("M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12zM12 2v2M12 20v2"
+                  "M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2"
+                  "M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4")
+THEME_MOON_PATH = "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+
+# 主题脚本：读存储 + 切换 + theme-color 同步改写，**合并在同一段 IIFE**。
+#   * 必须同步执行（不 defer/async）且排在 <style> 之前——脚本先于 CSS 解析
+#     跑完，深色用户才不会先看到一帧浅色再跳变。
+#   * 按钮此刻还没进 DOM（脚本在 head），故用 DOMContentLoaded 之后再绑事件；
+#     逻辑仍在一段 IIFE 内，不另起 body 尾部脚本，避免两处逻辑分散、重复绑定。
+#   * 全程 try/catch：localStorage 抛异常 / 值非法 → 一律回落深色且不抛未捕获错。
+#   * 脚本体内不得出现尖括号与方括号——run_daily._sub_outside_tags 按 <[^>]*>
+#     切标签段，脚本里带尖括号会把中间正文当标签吞掉；方括号会被门禁当成
+#     裸方括号证据编号。故用 getElementById / getElementsByTagName + item(0)。
+THEME_JS_TEMPLATE = (
+    "<script>(function(){try{"
+    "var K='%(key)s',R=document.documentElement,"
+    "SN='%(sun)s',MN='%(moon)s',DB='%(dark)s',LB='%(light)s';"
+    # 查 theme-color 用 getElementsByTagName 遍历，不用 querySelector——
+    # 后者的属性选择器带方括号，会污染"可见文本无裸方括号"这条门禁。
+    "function mt(){var a=document.getElementsByTagName('meta'),f=null;"
+    "Array.prototype.forEach.call(a,function(m){"
+    "if(m.getAttribute('name')==='theme-color'){f=m;}});return f;}"
+    "function bt(){return document.getElementById('theme-toggle');}"
+    "function ic(b){if(!b){return null;}var p=b.getElementsByTagName('path');"
+    "return p.length?p.item(0):null;}"
+    # ap() 是幂等的：改 data-theme，同步 theme-color 与图标、aria-pressed。
+    "function ap(t){R.setAttribute('data-theme',t);"
+    "var m=mt();if(m){m.setAttribute('content',t==='light'?LB:DB);}"
+    "var b=bt();if(b){b.setAttribute('aria-pressed',t==='light'?'true':'false');"
+    "var i=ic(b);if(i){i.setAttribute('d',t==='light'?MN:SN);}}}"
+    # 首帧：读存储。缺失 / 损坏 / 非法值 → 回落深色。
+    "var v=null;try{v=localStorage.getItem(K);}catch(e){v=null;}"
+    "ap(v==='light'?'light':'dark');"
+    # DOM 就绪后绑按钮，并把图标/aria-pressed 同步到当前主题。
+    "function bd(){var b=bt();"
+    "if(b){b.addEventListener('click',function(){"
+    "var c=R.getAttribute('data-theme')==='light'?'dark':'light';ap(c);"
+    "try{localStorage.setItem(K,c);}catch(e){}});}"
+    "ap(R.getAttribute('data-theme')==='light'?'light':'dark');}"
+    "if(document.readyState==='loading'){"
+    "document.addEventListener('DOMContentLoaded',bd);}else{bd();}"
+    "}catch(e){}})();</script>"
+)
+
+# 切换控件：纯图标按钮，无可见文本；不产生 <details>。
+# aria-pressed 由脚本按当前主题改写（true = 浅色主题生效）。
+THEME_TOGGLE_BTN = (
+    '<button class="tbtn" type="button" id="theme-toggle" '
+    'aria-label="切换深浅主题" title="切换深浅主题" aria-pressed="false">'
+    '<svg viewBox="0 0 24 24" aria-hidden="true">'
+    '<path fill="none" stroke="currentColor" stroke-width="2" '
+    'stroke-linecap="round" stroke-linejoin="round" d="%(sun)s"/>'
+    '</svg></button>'
+) % {"sun": THEME_SUN_PATH}
+
+
+def _theme_bg_colors(css):
+    """从生产样式里取浅/深底色 token 的实际值。
+
+    meta 的 theme-color 必须与 CSS 里的 --bg **逐字相等**（AC-07 要求"两者
+    相等，不是看起来接近"）。所以这里解析 css 文本，不另写一份常量——
+    常量与 CSS 各改一处就会漂移，而 meta 与底色不一致是最难自查的那种错。
+    解析不到时回落到兜底常量（单测可覆盖）。
+    """
+    def pick(block, name):
+        m = re.search(r"--%s\s*:\s*(#[0-9a-fA-F]{3,8})" % name, block or "")
+        return m.group(1) if m else None
+
+    light = dark = None
+    m = re.search(r"^:root\s*\{([^}]*)\}", css, re.M)
+    if m:
+        light = pick(m.group(1), "bg")
+    m = re.search(r"^\[data-theme=[\"']dark[\"']\]\s*\{([^}]*)\}", css, re.M)
+    if m:
+        dark = pick(m.group(1), "bg")
+    return (light or THEME_LIGHT_BG, dark or THEME_DARK_BG)
+
+
+def build_theme_js(css):
+    """拼出主题脚本（浅/深底色取自 css 的 token 实值）。"""
+    light_bg, dark_bg = _theme_bg_colors(css)
+    return THEME_JS_TEMPLATE % {
+        "key": THEME_KEY, "sun": THEME_SUN_PATH, "moon": THEME_MOON_PATH,
+        "light": light_bg, "dark": dark_bg,
+    }
+
+
+# ---------------------------------------------------------------------------
 # 区块渲染
 # ---------------------------------------------------------------------------
 def render_paras(paras):
@@ -613,11 +715,19 @@ def render(data, css):
     except (TypeError, ValueError):
         cov = _html.escape(str(meta.get("coverage", "--")))
 
-    parts = ['<!doctype html><html lang="zh"><head><meta charset="utf-8">',
+    # 改动 1：html 带 data-theme="dark"（默认深色，浅色由 head 脚本按存储改写）
+    # 改动 2：head 首位放防闪内联脚本（同步执行，必须在 <style> 之前）
+    # 改动 3：meta 两标签改写——color-scheme 声明双支持，theme-color 单条无 media
+    #         且初值取自 css 的深色 --bg 实值（AC-07 要求两者逐字相等）。
+    #         charset 必须留在前 1024 字节内，故排在脚本之前（HTML 规范硬要求，
+    #         否则中文报告可能按错误编码解析）。
+    parts = ['<!doctype html><html lang="zh" data-theme="dark"><head>',
+             '<meta charset="utf-8">',
              '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">',
-             '<meta name="color-scheme" content="light">',
-             '<meta name="theme-color" content="#faf9f6">',
+             '<meta name="color-scheme" content="dark light">',
+             f'<meta name="theme-color" content="{_theme_bg_colors(css)[1]}">',
              f"<title>{_html.escape(str(meta.get('title', '报告')))}</title>",
+             build_theme_js(css),
              f"<style>{css}</style></head><body><div class=\"wrap\">"]
 
     # ---- 报头 ----
@@ -627,10 +737,12 @@ def render(data, css):
     sess = "盘后" if "盘后" in date_txt else ("午间" if "午" in date_txt else "盘前")
     head = date_txt.replace(dstr, "").strip(" ·") or "持仓日报"
 
+    # 改动 3：报头右上角主题切换按钮（紧随覆盖率徽标 .cov 之后）
     parts.append(f'<header class="hero"><div class="hmeta">'
                  f'<span class="hdate">{esc(dstr)}</span>'
                  f'<span class="hdot">·</span><span>{esc(sess)}</span>'
                  f'<span class="cov" title="机械门禁计算的字段覆盖率">覆盖 {cov}%</span>'
+                 f'{THEME_TOGGLE_BTN}'
                  f'</div><h1>{esc(head)}</h1>')
 
     # 大势段常写三四百字，铺开会占满首屏：默认 3 行 + 读全文。
@@ -697,6 +809,8 @@ def render(data, css):
     parts.append(f'<footer class="foot">'
                  f'{(ASSETS / "disclaimer.html").read_text(encoding="utf-8").strip()}'
                  f'</footer>')
+    # 改动 4：切换逻辑已合并进 head 的同一段 IIFE（DOMContentLoaded 后绑按钮），
+    # body 末尾不再挂第二段脚本——两处逻辑分散会重复绑定、也会让门禁多扫一遍。
     parts.append("</div></body></html>")
     return "\n".join(parts)
 

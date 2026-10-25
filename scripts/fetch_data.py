@@ -118,7 +118,9 @@ SECTION_MARKET = {
 def _to_float(s):
     if s is None:
         return None
-    s = str(s).strip().replace(",", "").replace("%", "")
+    # 去 Markdown 强调符（持仓表里近期变动的行常写成 **600股** / **49.334**，
+    # 不去掉会导致 float 失败、数量与成本被读成 None）
+    s = str(s).strip().replace(",", "").replace("%", "").replace("*", "").replace("~", "")
     if s in ("", "-", "--", "N/A", "nan", "None"):
         return None
     try:

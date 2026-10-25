@@ -75,22 +75,22 @@ python scripts/gate_check.py ... --stage report --report-file <work>/daily-repor
 - 失败信号：用完整版阈值卡午间报告（误伤），或午间报告无任何证据引用（漏伤）。
 
 ### 场景 7：快速诊断（session=quick，单只）
-- 命令：`fetch_data.py --session quick --tickers AAPL`
+- 命令：`../scripts/fetch_data.py --session quick --tickers AAPL`
 - 期望：只处理指定标的；价格硬必需不放松；新闻/产业链缺失为警告而非阻断；
   单只结论仍需挂证据 ID。
 
 ### 场景 8：版本指纹 / 漂移 / 蓝绿重建（v2.1）
 - 命令：
-  - `release.py verify --target ENG`（或 RT）：与已发布 MANIFEST 一致 → 0；
+  - `../scripts/release.py verify --target ENG`（或 RT）：与已发布 MANIFEST 一致 → 0；
     篡改/缺失任一受管文件 → 1 并逐条列出。
-  - `release.py doctor`：版本 + ENG/RT 指纹 + 全量测试，全绿才健康。
-  - `redeploy.py plan` / `dry-run`：操作单完整、模板齐全、首句标题对应、ENG 指纹一致。
+  - `../scripts/release.py doctor`：版本 + ENG/RT 指纹 + 全量测试，全绿才健康。
+  - redeploy.py plan / `dry-run`：操作单完整、模板齐全、首句标题对应、ENG 指纹一致。
 - 期望：占位值 / 缺 source / 首页 URL 被证据门拦；刷引用 / 非法方括号 token 被报告门拦；
   蓝绿先建后删且幂等；保护清单（周度复盘导师、每日健身训练报告）绝不被删改。
 - 失败信号：verify 对篡改仍报 0；重建重复创建任务；或误伤保护清单任务。
 
 ## 版本纪律
 
-- 改 `fetch_data.py` / `gate_check.py` / schema 阈值后：先跑自动测试，再跑场景 1/2/5。
+- 改 fetch_data.py / gate_check.py / schema 阈值后：先跑自动测试，再跑场景 1/2/5。
 - 覆盖率权重、最低条数、硬必需项属于"门禁宪法"，改动必须同步本文件、
   evidence-schema.md、evidence-standards.md 三处，并在变更记录中写明原因。

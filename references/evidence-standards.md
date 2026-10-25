@@ -86,7 +86,7 @@
 ## 证据登记（强制前置）
 
 所有证据必须登记在 `evidence/<日期>_<时段>_<代码>.json`，字段与 ID 规范见
-[evidence-schema.md](evidence-schema.md)。由 `scripts/fetch_data.py` 生成骨架，
+[evidence-schema.md](evidence-schema.md)。由 scripts/fetch_data.py 生成骨架，
 agent 补证写回同一文件；**没有证据文件，证据门直接 FAIL，禁止进入辩论。**
 
 - 数据点 ID：`dp-001…`；新闻：`nw-001…`；产业链笔记：`ch-001…`
@@ -96,7 +96,7 @@ agent 补证写回同一文件；**没有证据文件，证据门直接 FAIL，�
 
 ## 数据覆盖率审计（机械计算，禁止口述）
 
-覆盖率**唯一权威值是 `scripts/gate_check.py --stage evidence` 的输出**，
+覆盖率**唯一权威值是 `../scripts/gate_check.py --stage evidence` 的输出**，
 报告横幅照抄该值（偏差 >3 个百分点，报告门 FAIL）。计算口径如下，agent 不得自创算法。
 
 ### 点状态计分

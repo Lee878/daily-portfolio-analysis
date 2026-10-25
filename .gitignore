@@ -4,6 +4,8 @@
 /config/*.json
 !/config/*.example.md
 !/config/*.example.json
+# 持仓更新脚本的本地备份目录（含真实持仓快照，绝不入库）
+/config/.holdings-backup/
 
 # 每日报告与证据（含成本、账户、历史 HTML）
 /data/
@@ -13,6 +15,16 @@
 
 # WorkBuddy 本地工作数据（会话/记忆，非项目资产）
 /.workbuddy/
+
+# ===== 含真实持仓的预览产物：绝不入库 =====
+# 预览 HTML 与截图内嵌真实成本 / 市值 / 盈亏金额，
+# 文本可扫、PNG 二进制无法扫，只能整体排除。
+/docs/ui-preview/*.html
+/docs/ui-preview/*.png
+
+# ===== 备份文件：绝不入库 =====
+# *.bak 会被 git check-ignore 命中，但历史上已被跟踪过，须显式排除
+*.bak
 
 # ===== Python =====
 __pycache__/
@@ -35,3 +47,7 @@ desktop.ini
 # ===== 本地临时 =====
 *.local.json
 *.log
+
+# ===== 构建/发布产物：绝不入库 =====
+# skill-studio 为本地构建与发布用的中间产物，不属于运行时包，公开仓不含。
+/skill-studio/

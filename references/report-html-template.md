@@ -1,8 +1,8 @@
 # 报告 HTML 视觉与布局规范 v2.7.0（Brief 版式）
 
-> 只在 Step 5 写报告时读本文件。**HTML 由 `scripts/render_report.py` 生成**，
-> agent 只填 `data.json`（见 `assets/data-schema.md`），不写标签、CSS、卡片函数。
-> 本文件是渲染器的实现契约：改样式先改这里，再改 `assets/style.css` 与渲染器。
+> 只在 Step 5 写报告时读本文件。**HTML 由 scripts/render_report.py 生成**，
+> agent 只填 data.json（见 assets/data-schema.md），不写标签、CSS、卡片函数。
+> 本文件是渲染器的实现契约：改样式先改这里，再改 assets/style.css 与渲染器。
 
 ---
 
@@ -34,7 +34,7 @@
 | 页面边距 | 20px | 32px |
 | 内容最大宽 | 100% | 760px |
 
-颜色 token（`assets/style.css` 的 `:root`）：
+颜色 token（assets/style.css 的 `:root`）：
 
 ```
 --bg #faf9f6   --paper #ffffff  --rule #e2ded4  --rule2 #eeebe3
@@ -125,7 +125,7 @@
 ## 6. 报告门的兼容约束（改模板时必须守住）
 
 这四条都是**踩过的坑**，破坏任一条都不会报错，只会让门禁判错或让报告静默变形。
-`tests/test_render_ui.py` 已把它们钉成测试。
+tests/test_render_ui.py 已把它们钉成测试。
 
 1. **卡片开标签只能是 `<div class="card …">`，class 之后不许再挂属性**
    门禁用 `<div class="card(?![^"]*sector)[^"]*">` 认卡片起点。多一个 `data-ev`

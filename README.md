@@ -43,7 +43,7 @@
 | 北向资金 | 同花顺沪深股通 | — |
 | 美股期权 PCR | CBOE | — |
 
-- 优先级链在 `config/data-sources.json`（模板 `config/data-sources.example.json`），**改配置就能换源，不用动脚本**。
+- 优先级链在 config/data-sources.json（模板 `config/data-sources.example.json`），**改配置就能换源，不用动脚本**。
 - 适配层只用标准库：**不装任何第三方包也能取到 A股/港股/美股行情**；akshare/baostock 只是可选兜底。
 - 东财在本机常被封 IP（绕代理也断），所以它只作补充，失败就降级并写进 `gaps`，不反复重试。
 - 每批次会生成字段级覆盖度报表 `data/daily-reports/coverage/<日期>_<时段>.json`：哪个字段一直缺、该不该接新源，看这个。
@@ -65,7 +65,7 @@ python scripts/setup_local.py
 # 2) 填自己的持仓与关注库
 #    编辑 config/holdings.md、config/watchlist.md（格式见 examples/）
 
-# 3) 自检：语法 + 版本指纹 + 146 项回归测试
+# 3) 自检：语法 + 版本指纹 + 184 项回归测试
 python scripts/release.py doctor
 
 # 4) 取证（网络可用时去掉 --no-network）
@@ -85,10 +85,10 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
 | 目录 | 放什么 | 是否入库 |
 |---|---|---|
 | `SKILL.md` | 引擎标准（七步法、门禁口径、输出规范），**唯一权威** | ✅ |
-| `scripts/` | 12 个核心脚本：取证 / 门禁 / 渲染 / 编排 / 通知 / 发布自检，外加 `adapters/` 数据源适配层 | ✅ |
+| `scripts/` | 15 个核心脚本：取证 / 门禁 / 渲染 / 编排 / 通知 / 发布自检，外加 `adapters/` 数据源适配层 | ✅ |
 | `references/` | 方法论与规范（分析流程、辩论协议、证据分级、HTML 规范…） | ✅ |
 | `assets/` | 样式、免责、data.json 填写规范、三个时段的 prompt 模板 | ✅ |
-| `tests/` | 146 项回归测试（含跨模块口径一致性测试） | ✅ |
+| `tests/` | 184 项回归测试（含跨模块口径一致性测试） | ✅ |
 | `examples/` | 持仓/关注库的空模板 | ✅ |
 | `config/` | **你的真实持仓、关注库、送达配置** | ❌ 不入库 |
 | `data/` | 每日报告与证据 JSON（含成本、账户信息） | ❌ 不入库 |
@@ -107,7 +107,7 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
   24 屏的报告不用再盲滑。
 - **证据是脚注制**：正文只留上标序号 ¹²，卡底「证据」折叠给出编号/级别/来源/链接；
   方括号原文保留在源码 `data-ev` 属性里，所以门禁照样能查、鼠标悬停也照样能看到。
-- **成本 / 现价 / 浮动**三格数据条：浮动盈亏由 `render_report.py` 从持仓串算出，
+- **成本 / 现价 / 浮动**三格数据条：浮动盈亏由 `scripts/render_report.py` 从持仓串算出，
   不再靠人眼比对（原版有成本却不算盈亏）。
 - **涨红跌绿**（A 股习惯）：涨/多方红，跌/空方绿；涨跌色只作用文字，不做背景填充。
 - 大势段默认折 3 行 +「读全文」，首屏直接是数据与动作，不是一大段文字。
@@ -115,7 +115,7 @@ python scripts/run_daily.py report --session pre --data <绝对路径>/pre.json
 **手机接收（v2.6.1）**：Bark 负责叫醒，正文只放 3–5 行摘要（结论/动作/到价/缺口），
 全文点开 App 看——**App 已实测能直接渲染报告 HTML**，所以不需要上传到任何空间。
 
-配置 `config/notify.json`（复制 `config/notify.example.json`，填 `bark_key` 即生效）后，
+配置 config/notify.json（复制 `config/notify.example.json`，填 `bark_key` 即生效）后，
 **`run_daily report` 会自动推送**，不用手动跑：
 
 ```bash
@@ -126,7 +126,7 @@ python scripts/run_daily.py report --session post --data data.json --notify-summ
 python scripts/run_daily.py report --session post --data data.json --no-notify
 ```
 
-手动补发或单独告警才直接用 `notify.py`：
+手动补发或单独告警才直接用 `scripts/notify.py`：
 
 ```bash
 python scripts/notify.py --session post --status FAIL --reason "取数全失败"   # 不受静默时段限制
@@ -138,10 +138,10 @@ python scripts/notify.py --session post --status FAIL --reason "取数全失败"
 
 ## 关注库（想低位接回的标的）
 
-- `config/watchlist.md` 一张表：名称｜代码｜市场｜目标接回价｜计划股数｜预计金额｜止损｜加入日期｜状态｜逻辑。
+- config/watchlist.md 一张表：名称｜代码｜市场｜目标接回价｜计划股数｜预计金额｜止损｜加入日期｜状态｜逻辑。
 - **默认全部深度分析**（含多空、产业链、到价执行清单）。
 - 需要临时降级某只（例如财报暴雷、数据源全挂）：
-  在 `config/watchlist_brief.json` 对应时段数组里写 ticker，或单次运行加 `--brief SNDK`。
+  在 config/watchlist_brief.json 对应时段数组里写 ticker，或单次运行加 `--brief SNDK`。
 - 到价判定：现价 ≤ 目标接回价 → 报告标红，并给"可接回清单（股数/止损/证伪）"或明确"先别接"。
 
 ---
@@ -153,9 +153,9 @@ python scripts/notify.py --session post --status FAIL --reason "取数全失败"
 
 | 时段 | 时间 | prompt |
 |---|---|---|
-| 盘前 | 08:30 | `pre.md` |
-| 午间 | 12:00 | `noon.md` |
-| 盘后 | 20:00 | `post.md` |
+| 盘前 | 08:30 | pre.md |
+| 午间 | 12:00 | noon.md |
+| 盘后 | 20:00 | post.md |
 
 安装到 WorkBuddy 技能目录并检查副本一致性：
 
@@ -169,7 +169,7 @@ python scripts/install_skill.py --check  # 只检查，不改文件
 ## 常见问题
 
 **取不到行情怎么办？**
-`fetch_data.py` 会生成"全 missing 骨架"并列出待补清单，agent 用搜索/行情工具补证写回同一 JSON。
+`scripts/fetch_data.py` 会生成"全 missing 骨架"并列出待补清单，agent 用搜索/行情工具补证写回同一 JSON。
 门禁只看证据字段与 URL，不看数据来自哪个接口。取不到就如实写进 `gaps`，**禁止占位、禁止造假**。
 
 **报告门说"引用不存在"？**
@@ -185,7 +185,7 @@ python scripts/install_skill.py --check  # 只检查，不改文件
 
 ## 版本
 
-当前 `2.6.0`。版本号在 `VERSION.json`、`pyproject.toml`、`MANIFEST.json` 三处保持一致；
+当前 2.6.0。版本号在 `VERSION.json`、`pyproject.toml`、`MANIFEST.json` 三处保持一致；
 `MANIFEST.json` 用于校验"本机这份副本有没有被手改过"。
 
 ---

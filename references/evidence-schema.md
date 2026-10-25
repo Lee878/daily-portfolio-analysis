@@ -1,7 +1,7 @@
 # 证据文件 Schema（Evidence JSON）
 
 > 这是整个技能的"取证门禁"核心。任何持仓在进入多空辩论前，必须先存在一份符合本 schema 的证据文件；
-> 辩论论点必须引用证据 ID；覆盖率由 `scripts/gate_check.py` 机械计算，禁止 agent 口述。
+> 辩论论点必须引用证据 ID；覆盖率由 scripts/gate_check.py 机械计算，禁止 agent 口述。
 
 ## 1. 文件位置与命名
 
@@ -12,7 +12,7 @@
 
 - `report_root`：默认为 holdings.md 同级的 `daily-reports/`，可用 `--report-root` 覆盖。
 - `session`：`pre`（盘前）/ `noon`（午间）/ `post`（盘后）/ `quick`（快速诊断）。
-- `safe_ticker`：把代码中的 `.` 换成 `_`，如 `601899.SH → 601899_SH`、`00700.HK → 00700_HK`、`AAPL → AAPL`。
+- `safe_ticker`：把代码中的 `.` 换成 `_`，如 601899.SH → 601899_SH、00700.HK → 00700_HK、`AAPL → AAPL`。
 - 同一只标的同一时段只有一份证据文件；补证时**原地更新**，不要新建副本。
 - **已清仓标的不生成证据文件**：holdings 中名称带 `~~删除线~~` 或数量/状态列写"已清仓/已卖出/已了结/退市"的标的，两份 `parse_holdings` 都会自动剔除、不取证；其历史遗留 JSON 被报告门自动忽略（不计覆盖率、不提供 ID），无需手动删除。
 
