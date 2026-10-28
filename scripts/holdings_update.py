@@ -202,6 +202,28 @@ def validate_snapshot(snap):
 
 
 # ---------------------------------------------------------------- 比对
+def check_cost_jumps(snap, current_md_text, threshold=0.15):
+    """成本相对现有档案跳变超阈值 → 告警（不阻断）。卖出不改成本基础，跳变多为口径差异或读错。"""
+    market = snap["market"]
+    if market == "基金":
+        return []
+    cur = {h["ticker"]: h for h in fetch_data.parse_holdings(current_md_text) if h["market"] == market}
+    warns = []
+    for p in snap["positions"]:
+        tk = p.get("ticker") or p.get("code")
+        if not tk or tk not in cur:
+            continue
+        old, new = cur[tk].get("cost"), _num(p.get("cost"))
+        if old and new and old > 0:
+            rel = abs(new - old) / old
+            if rel > threshold:
+                warns.append(
+                    f"{p.get('name')} {tk}: 成本跳变 {old:.3f} → {new:.3f}（{rel:.0%}）"
+                    f"——卖出/减仓不改变成本基础，请核对券商口径后确认"
+                )
+    return warns
+
+
 def diff_snapshot(snap, current_md_text):
     """返回按类别归好的变更字典。只在该 market 范围内比对。"""
     market = snap["market"]
@@ -299,12 +321,107 @@ def render_report(snap, d, errors, warnings):
         for h in d["missing"]:
             L.append(f"   - {h['name']} {h['ticker']}  {_fmt_qty(h.get('quantity'))}  "
                      f"→ 若已卖出，请加 --mark-cleared {h['ticker']}")
+    orders = snap.get("orders") or []
+    if orders:
+        L.append("📋 成交订单（来自快照 orders）")
+        for o in orders:
+            side = "卖出" if str(o.get("side", "")).lower() in ("sell", "卖", "卖出") else "买入"
+            L.append(f"   - {side} {o.get('name', '')} {o.get('code', '')} "
+                     f"{o.get('qty', '')}股 @{o.get('price', '')}（{o.get('status', '')}）")
     if not _has_change(d):
         L.append("（无任何持仓变动）")
     return "\n".join(L)
 
 
 # ---------------------------------------------------------------- 写回
+def _sub_num(text, key, value, plus=False):
+    """把「key：<数字>」里的数字换成 value，单位/括号说明等其余文字原样保留。"""
+    if value is None:
+        return text
+    pat = re.compile(rf"({re.escape(key)}\s*[：:]\s*)([+\-]?[\d,]+(?:\.\d+)?)")
+    new = f"{value:+,.2f}" if plus else f"{value:,.2f}"
+    return pat.sub(lambda m: m.group(1) + new, text, count=1)
+
+
+def _sub_pct(text, key, value):
+    if value is None:
+        return text
+    pat = re.compile(rf"({re.escape(key)}\s*[：:]\s*)([\d.]+)\s*%")
+    return pat.sub(lambda m: m.group(1) + f"{value:g}%", text, count=1)
+
+
+def _sync_overview_row(md_text, account, totals):
+    """按 account 精确匹配「账户总览」行，更新净资产与总盈亏两列。"""
+    lines = md_text.splitlines()
+    for i, ln in enumerate(lines):
+        if not ln.strip().startswith("|") or "账户" not in ln or "总资产" not in ln:
+            continue
+        j = i + 1
+        while j < len(lines) and lines[j].strip().startswith("|---"):
+            j += 1
+        while j < len(lines) and lines[j].strip().startswith("|"):
+            cells = [c.strip() for c in lines[j].strip().strip("|").split("|")]
+            if cells and cells[0] == account and len(cells) >= 4:
+                cur = (totals.get("currency") or "").strip()
+                na, pnl = totals.get("net_assets"), totals.get("pnl")
+                if na is not None:
+                    cells[2] = f"{na:,.2f} {cur}".strip()
+                if pnl is not None:
+                    cells[3] = f"{pnl:+,.2f} {cur}".strip()
+                lines[j] = "| " + " | ".join(cells) + " |"
+                return "\n".join(lines)
+            j += 1
+        break
+    return md_text
+
+
+def _sync_section_summary(md_text, market, totals):
+    """更新分节里的「净资产 / 总资产」汇总行，只换数字，措辞与说明原样保留。"""
+    key = SECTION_KEY[market]
+    lines = md_text.splitlines()
+    start = end = None
+    for i, ln in enumerate(lines):
+        if re.match(rf"^##(?!#)\s*{re.escape(key)}", ln.strip()):
+            start = i
+            continue
+        if start is not None and i > start and re.match(r"^##(?!#)", ln.strip()):
+            end = i
+            break
+    if start is None:
+        return md_text
+    if end is None:
+        end = len(lines)
+
+    for i in range(start, end):
+        s = lines[i]
+        if s.strip().startswith("|"):
+            continue
+        if re.search(r"净资产\s*[：:]", s):
+            s = _sub_num(s, "净资产", totals.get("net_assets"))
+            s = _sub_num(s, "持仓盈亏", totals.get("pnl"), plus=True)
+            s = _sub_num(s, "今日盈亏", totals.get("today_pnl"), plus=True)
+            lines[i] = s
+        elif re.search(r"总资产\s*[：:]", s):
+            s = _sub_num(s, "总资产", totals.get("net_assets"))
+            s = _sub_pct(s, "仓位", totals.get("position_pct"))
+            s = _sub_num(s, "总盈亏", totals.get("pnl"), plus=True)
+            lines[i] = s
+    return "\n".join(lines)
+
+
+def _sync_totals(md_text, snap):
+    """快照带 totals 时，同步账户总览行与分节汇总行；不带则原样返回。"""
+    totals = snap.get("totals") or {}
+    if not totals:
+        return md_text
+    md = md_text
+    account = (snap.get("account") or "").strip()
+    if account:
+        md = _sync_overview_row(md, account, totals)
+    md = _sync_section_summary(md, snap["market"], totals)
+    return md
+
+
 def _replace_section_table(md_text, market, snap, cleared=()):
     """把 market 分节里的持仓表重写为快照内容；已清仓行、非表格注释原样保留。"""
     key = SECTION_KEY[market]
@@ -413,6 +530,10 @@ def _touch_updated_line(md_text, now, note):
 def _append_change_record(md_text, now, d, snap, cleared):
     date = now[:10]
     bits = []
+    for o in (snap.get("orders") or []):
+        side = "卖出" if str(o.get("side", "")).lower() in ("sell", "卖", "卖出") else "买入"
+        bits.append(f"{side} {o.get('name', '')}{o.get('code', '')} "
+                    f"{o.get('qty', '')}股@{o.get('price', '')}")
     for p in d["added"]:
         bits.append(f"新增 {p['name']}{p.get('ticker') or ''} {_fmt_qty(_num(p.get('qty')))}")
     for c, p, q0, q1 in d["qty"]:
@@ -425,7 +546,12 @@ def _append_change_record(md_text, now, d, snap, cleared):
         bits.append(f"{h['name']}未在截图出现(待确认)")
     for tk in cleared:
         bits.append(f"{tk} 标清仓")
-    content = "；".join(bits) if bits else "无变动"
+    if bits:
+        content = "；".join(bits)
+    elif snap.get("totals"):
+        content = "账户汇总更新（无持仓变动）"
+    else:
+        content = "无变动"
     acct = snap.get("account") or snap.get("broker") or ""
     note = f"{acct} {snap.get('as_of', '')} 截图；快照更新".strip()
 
@@ -458,6 +584,8 @@ def apply_update(holdings_path: Path, snap, d, cleared):
 
     # 2) 重写表格
     md2 = _replace_section_table(md, snap["market"], snap, cleared)
+    # 2.5) 快照带 totals 时，同步账户总览 / 分节汇总行
+    md2 = _sync_totals(md2, snap)
     # 3) 更新时间戳 + 变动记录
     md2 = _touch_updated_line(md2, now, f"{snap.get('account','')}截图更新".strip())
     md2 = _append_change_record(md2, now, d, snap, cleared)
@@ -507,6 +635,7 @@ def main(argv=None):
 
     errors, warnings = validate_snapshot(snap)
     md = hpath.read_text(encoding="utf-8")
+    warnings += check_cost_jumps(snap, md)
     d = diff_snapshot(snap, md)
     cleared = set(args.mark_cleared or [])
 
@@ -530,11 +659,11 @@ def main(argv=None):
         return 1
 
     if not args.apply:
-        if _has_change(d) or cleared:
+        if _has_change(d) or cleared or _sync_totals(md, snap) != md:
             print("\n⚠️  这是预览，未写入。确认无误后加 --apply 写回。")
         return 0
 
-    if not _has_change(d) and not cleared:
+    if not _has_change(d) and not cleared and _sync_totals(md, snap) == md:
         print("\n✅ 无变动，无需写入。")
         return 0
 

@@ -4,7 +4,7 @@ description: "深度持仓分析引擎。读取持仓档案，对每只持仓标
 description_zh: "深度持仓分析引擎：把每日持仓复盘做成带机械门禁的流程。取证不达标脚本直接阻断辩论，论点不挂证据 ID 报告门禁止交付，所有数字可追溯到证据文件。输出盘前 / 午间 / 盘后三时段 HTML 报告，深色默认、可切浅色。"
 description_en: "Evidence-gated daily portfolio analysis. Every number is traceable to an evidence file; the gates block delivery when sourcing falls short, so output quality does not decay over time. Produces pre-market, midday and post-market HTML reports with a dark-first, light-switchable theme."
 author: Lee878
-version: 2.10.0
+version: 2.10.3
 metadata:
   license: MIT
   requires-python: ">=3.10"
@@ -203,6 +203,9 @@ python scripts/gate_check.py --report-root <daily-reports> --date <日期> \
 P4 不得唯一支撑论点（超 2 条阻断）、信息来源折叠区/免责声明/缺口披露齐全。
 **多空不同源（完整版 pre/post）**：每只卡片必须有明确标注"多方/多头"与"空方/空头"的对立区块，
 且双方各至少 1 个对方没有的独立证据 ID——空方照抄多方同源 ID、或缺对立区块，直接 FAIL。
+**论点独立性（来源族不重叠，v2.10.1）**：多空各自的独立观点证据（新闻 `nw-`/产业链 `ch-`，带立场）
+必须来自对方未引用的来源族（域名/媒体）；空方拿「多方已引用同源新闻的另一个 ID」凑独立，直接 FAIL
+——同一份污染材料不能两边各计一票。行情数据点 `dp-` 属中性事实（同一行情源两边都引正常），不参与此校验。
 **FAIL 禁止交付。**
 
 ### Step 7 交付与存档
@@ -221,16 +224,22 @@ P4 不得唯一支撑论点（超 2 条阻断）、信息来源折叠区/免责�
 用户随时可能发来券商 App 持仓截图（银河 / 盈立 / 蚂蚁）。**不要手工改 holdings.md**，走固定管线：
 
 1. **读图**：从截图抽取该账户该市场的持仓，产出符合 assets/holdings-snapshot-schema.md 的快照 JSON。
-   只保证 `name / code / qty / cost / last` 即可（派生值脚本会算）；基金用 `name / amount / pnl`。
-   **只抽截图里实际显示的行**，没显示的不写进快照。
+   - 持仓：只保证 `name / code / qty / cost / last` 即可（派生值脚本会算）；基金用 `name / amount / pnl`。
+   - **账户汇总 `totals`**：截图顶部的净资产 / 总盈亏 / 今日盈亏 / 仓位一并填，脚本会自动同步「账户总览」行与分节汇总行，不用手改。
+   - **成交订单 `orders`**：截图若在「今日订单/成交」页，把方向、数量、成交价抄进去，脚本会自动写进变动记录。
+   - **只抽截图里实际显示的行**；折叠未展开的账户不写、不猜。
 2. **预览**（默认只读不写）：
    `python scripts/holdings_update.py --snapshot <快照.json>`
-   把变更清单给用户看：新增 / 数量变化 / 成本变化 / 现价更新 / **截图未包含（待确认）**。
+   把变更清单给用户看：新增 / 数量变化 / 成本变化 / 现价更新 / **成本跳变告警** / 成交订单 / **截图未包含（待确认）**。
 3. **确认后写回**：用户点头才加 `--apply`。
    截图里没出现、但用户确认已卖出的，用 `--mark-cleared <ticker>` 显式标清仓——**绝不自作主张清仓**。
 4. 写前自动备份到 `config/.holdings-backup/`；出错可 `--restore` 还原。
 
-脚本机械校验 `数量 × 现价 ≈ 市值`（偏差 > 3% 直接拒绝写入，防 OCR 数字错读），
+脚本机械校验：
+- `数量 × 现价 ≈ 市值`，偏差 > 3% **直接拒绝写入**（防 OCR 数字错读）；
+- `成本相对现有档案跳变 > 15%` 只**告警不阻断**——卖出/减仓不改成本基础，跳变多为券商口径重算或读错，必须人工核对；
+- 快照带 `totals` 自动同步账户总览/分节汇总行，带 `orders` 自动记成交，省掉手改。
+
 并复用 `fetch_data` 的解析口径，保证「更新」与「取数」永远一致。
 
 ## 快速诊断（轻量模式）
@@ -322,6 +331,11 @@ python3 $ENG/scripts/reuse_evidence.py --report-root <daily-reports> --date <日
 | 报告正文 MD | YYYY-MM-DD-盘前报告.md 等 | 存档，不 present |
 | 证据文件 | `evidence/<日期>_<时段>_<代码>.json`、`*_macro.json` | 存档，对账依据，不 present |
 
+**留存机制（v2.10.3，防止中途更新/重跑覆盖丢数据）**：
+- 每次 `report` 运行前，自动把旧产物归档到 `archive/<日期>/<YYYYMMDD-HHMMSS>/` 快照（旧 HTML、旧对账 recon、本次 data、本次 session 证据），固定文件名永远指向最新；回看历史进 archive 目录。
+- `fetch` 重跑**不再清空** agent 补的新闻/产业链：写盘前回填旧文件的 news/chain_notes；要强制重置加 `--reset-news`。
+- 每次 report 追加一行 `run-log.csv`（日期/run_id/时段/覆盖率/门禁签名/产物路径/快照目录），给将来分析报告质量打底。
+
 HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠、证据脚注、板块卡、信息来源折叠区）全部移到
 [report-html-template.md](references/report-html-template.md)，写报告时按该文件执行，不在此占用流程篇幅。
 
@@ -399,7 +413,7 @@ HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠�
 - 数据与代码分开放：代码入库（git），`config/` 与 `data/` 不入库，换电脑单独拷贝。
 - 改了受管文件（脚本/规范/样式/模板）后必须 `python scripts/release.py manifest`（发版用 `bump`）重算指纹，
   否则 `doctor` 会报漂移。
-- 回归测试：`python -m unittest discover -s tests`（从仓库根跑，当前 67 项，须全绿）。
+- 回归测试：`python -m unittest discover -s tests`（从仓库根跑，当前 197 项，须全绿）。
 
 ## 交付前自检（脚本门 + 人工确认）
 
@@ -415,6 +429,7 @@ HTML 设计规范（Brief 浅色版式、响应式多空双栏、Regime 折叠�
 □ 股票完整版每只标的新闻 ≥2 个独立来源族（不同域名/媒体，无同源转载）
 □ 股票完整版证据同时含 bullish 与 bearish 新闻（缺独立反面证据不放行）
 □ 完整版卡片有明确"多方/空方"对立区块，且各至少 1 个对方没有的独立证据 ID（多空不同源）
+□ 多空各自的独立观点证据（新闻/产业链）来源族不重合（同源材料换 ID 不算独立；行情数据点除外）
 □ 组合总览条 + Regime 条 + 板块雷达（含生命周期/SEI/中军龙头）
 □ 每只持仓卡片：结论置信度 / 市场位置与 price-in 审计 / 环比同比+预期差 /
   多空双栏 / 共识分歧 / 风控（风报比+止损+目标）/ 证伪条件

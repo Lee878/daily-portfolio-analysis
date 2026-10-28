@@ -816,8 +816,10 @@ def check_report(report_root, date, session, holdings, report_file,
                       for h in holdings}
     expected_files.add(ev_dir / f"{date}_{session}_macro.json")
 
-    # 装载证据 ID
-    id_level, id_exists = {}, set()
+    # 装载证据 ID 及其来源族。来源族（域名/媒体）用于"论点独立性"校验：
+    # 多空各自的独立观点证据（新闻/产业链）必须来自对方未引用的来源族，
+    # 否则"同一份污染材料两边各挂一个 ID"就能凑出假独立。
+    id_level, id_exists, id_family = {}, set(), {}
     coverages = []
     # brief 关注标的不进组合覆盖率（与证据门口径一致），否则其低覆盖会拉低 combo
     brief_tickers = {h["ticker"] for h in holdings
@@ -833,14 +835,17 @@ def check_report(report_root, date, session, holdings, report_file,
             if p.get("id"):
                 id_exists.add(p["id"])
                 id_level[p["id"]] = p.get("evidence_level")
+                id_family[p["id"]] = source_family(p)
         for n in ev.get("news", []):
             if n.get("id"):
                 id_exists.add(n["id"])
                 id_level[n["id"]] = n.get("evidence_level")
+                id_family[n["id"]] = source_family(n)
         for c in ev.get("chain_notes", []):
             if c.get("id"):
                 id_exists.add(c["id"])
                 id_level[c["id"]] = c.get("evidence_level")
+                id_family[c["id"]] = source_family(c)
         if (ev.get("market") not in (None, "macro")
                 and ev.get("ticker", "_") != "_macro"
                 and ev.get("ticker") not in brief_tickers
@@ -921,6 +926,30 @@ def check_report(report_root, date, session, holdings, report_file,
                     problems.append(
                         f"[{h['name']}] 空方论点没有任何独立于多方的证据（引用全是多方同源 "
                         f"ID），必须补独立的反面来源")
+
+                # 论点独立性（来源族不重叠，v2.10.1）：多空各自的独立"观点证据"
+                # （新闻 nw- / 产业链 ch-，带立场）必须来自对方未引用的来源族。
+                # 否则空方拿"多方已引用同源新闻的另一个 ID"就能凑出"独立 ID"，
+                # 等于同一份污染材料两边各计一票。行情数据点 dp- 属中性事实
+                # （同一行情源两边都引是正常的），不参与本校验。
+                bull_view = {id_family[i] for i in bull_ids
+                             if i in id_family and i[:3] in ("nw-", "ch-")}
+                bear_view = {id_family[i] for i in bear_ids
+                             if i in id_family and i[:3] in ("nw-", "ch-")}
+                bull_only_view = {id_family[i] for i in (bull_ids - bear_ids)
+                                  if i in id_family and i[:3] in ("nw-", "ch-")}
+                bear_only_view = {id_family[i] for i in (bear_ids - bull_ids)
+                                  if i in id_family and i[:3] in ("nw-", "ch-")}
+                if bull_only_view and bull_only_view <= bear_view:
+                    problems.append(
+                        f"[{h['name']}] 多方的独立新闻/产业链证据来源族与空方完全重合"
+                        f"（{', '.join(sorted(bull_only_view))}）——独立观点证据必须来自"
+                        f"对方未引用的来源，禁止同源材料换 ID 凑独立")
+                if bear_only_view and bear_only_view <= bull_view:
+                    problems.append(
+                        f"[{h['name']}] 空方的独立新闻/产业链证据来源族与多方完全重合"
+                        f"（{', '.join(sorted(bear_only_view))}）——独立观点证据必须来自"
+                        f"对方未引用的来源，禁止同源材料换 ID 凑独立")
 
     # 关注库（watchlist）：到价标红+执行清单 / 未到价禁喊买 / 满4周重评估 / 价值陷阱可否决
     for h in holdings:

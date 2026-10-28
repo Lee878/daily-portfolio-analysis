@@ -1,6 +1,6 @@
 > **云端运行模式（WorkBuddy CloudAgent 沙箱）**
 > - `REPO_DIR` = `/workspace/dpa`，所有 `python` 命令已改为 `python3`。
-> - 持仓 / 通知(Bark) / COS 配置由 `cloud/bootstrap.sh` 从 secrets 注入，任务开始时已是最新（方法 B：直接存文本）。
+> - 持仓（方法 A：私有仓 `HOLDINGS_REPO`）/ 通知(Bark) / COS 配置由 `cloud/bootstrap.sh` 从 secrets 注入，任务开始时已是最新。
 > - 数据源优先走 **NeoData MCP**，需云端 Agent 已连接该连接器；它走平台侧通道，不受本机代理影响。
 > - 其余流程、门禁、输出规范与本机完全一致。
 

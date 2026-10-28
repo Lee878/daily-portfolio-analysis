@@ -168,7 +168,7 @@ python docs/ui-preview/a11y_check.py
 python scripts/release.py package --dry-run
 ```
 
-**预期**：`doctor` 三项全绿（语法通过 / 指纹一致 / `Ran 184 tests` + `OK`）；
+**预期**：`doctor` 三项全绿（语法通过 / 指纹一致 / `Ran 197 tests` + `OK`）；
 a11y_check.py 退出码 0；`package --dry-run` 报暂存树文件数与产物卫生检查全通过。
 
 ### 指纹与换行说明

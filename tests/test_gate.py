@@ -464,6 +464,59 @@ class TestReportGate(GateFixture):
         self.assertTrue(any("独立于多方" in p for p in r["problems"]),
                         r["problems"])
 
+    def _bull_bear_report(self, bull_refs, bear_refs):
+        """按给定多空引用生成一份可过其余门禁的报告正文（含来源/免责/缺口）。"""
+        lines = ["# 盘前报告\n数据覆盖率 80%\n"]
+        for h in self.stocks:
+            lines.append(f"## {h['name']}（{h['ticker']}）")
+            for i, rid in enumerate(bull_refs, 1):
+                lines.append(f"- 多方论点{i}：理由陈述 [{rid}]")
+            for i, rid in enumerate(bear_refs, 1):
+                lines.append(f"- 空方论点{i}：风险陈述 [{rid}]")
+        lines.append(
+            "<details><summary>信息来源</summary>"
+            "http://example.com/detail/123456\n"
+            "https://reuters.com/article/789012\n"
+            "http://example.com/detail/345678\n"
+            "http://example.com/article/901234\n</details>")
+        lines.append("免责声明：本报告不构成投资建议，风险自担。")
+        lines.append("## 我不确定的是\n- 部分数据待验证")
+        return "\n".join(lines)
+
+    def test_bull_bear_same_source_family_blocks(self):
+        """空方独立观点证据若与多方同源（同一域名），视为不独立，必须阻断。
+
+        对应多 Agent 辩论的'论点独立性校验'：同源材料不能两边各计一票。
+        空方拿'多方已引用同源新闻的另一个 ID'凑独立，应被来源族不重叠规则拦下。
+        """
+        for h in self.stocks:
+            ev = make_stock_evidence(h["ticker"], h["name"], h["market"])
+            # 两条新闻改成同域名（nw-002 与 nw-001 同源），制造"同源凑独立"
+            ev["news"][1]["url"] = "http://example.com/detail/999999"
+            ev["news"][1]["source"] = "交易所公告"
+            self.write_ev(ev, h["ticker"])
+        rf = self.root / "report.md"
+        rf.write_text(self._bull_bear_report(
+            ["nw-001", "dp-001", "dp-002", "ch-001"],
+            ["nw-002", "dp-003"]), encoding="utf-8")
+        r = gc.check_report(self.root, "2026-09-20", "pre", self.stocks, rf)
+        self.assertEqual(r["exit_code"], gc.FAIL)
+        self.assertTrue(any("来源族" in p and "重合" in p for p in r["problems"]),
+                        r["problems"])
+
+    def test_bull_bear_diff_source_family_passes(self):
+        """多空独立观点证据来源族不同（异源）→ 正常放行，不误杀。"""
+        for h in self.stocks:
+            ev = make_stock_evidence(h["ticker"], h["name"], h["market"])
+            # nw-001=example.com(bullish)、nw-002=reuters.com(bearish)，天然异源
+            self.write_ev(ev, h["ticker"])
+        rf = self.root / "report.md"
+        rf.write_text(self._bull_bear_report(
+            ["nw-001", "dp-001", "dp-002", "ch-001"],
+            ["nw-002", "dp-003"]), encoding="utf-8")
+        r = gc.check_report(self.root, "2026-09-20", "pre", self.stocks, rf)
+        self.assertEqual(r["exit_code"], gc.PASS, r["problems"])
+
     def test_missing_bull_bear_block_blocks(self):
         ids_map = self._good_evidence()
         text = self._report_text(ids_map).replace("空方论点", "补充论点")

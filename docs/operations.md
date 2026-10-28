@@ -95,7 +95,7 @@ Bark **只负责叫醒**：通知栏放不下整份报告，正文截断在 400 
 1. 改对应文件：`SKILL.md`（流程）、`scripts/gate_check.py`（阈值）、
    `references/*.md`（方法论）、`assets/*`（样式与数据契约）。
 2. **必须补回归用例**：`tests/test_regressions.py`，能复现改动前后的差异。
-3. 跑测试：`python -m unittest discover -s tests`（67 项，必须全绿）。
+3. 跑测试：`python -m unittest discover -s tests`（197 项，必须全绿）。
 4. 升版本并重算指纹：
 
    ```bash
@@ -172,10 +172,17 @@ python scripts/release.py doctor
 | Bark 报 `bark_key 为空` | `config/notify.json` 没填 key | 填 key 后重跑；不影响桌面交付 |
 | 推送成功但点开没内容 | `read_url_base` 留空 | 填成报告在 App 中的可访问前缀，否则通知只带摘不带链接 |
 
-### 4.3 报告被删了
+### 4.3 报告被删了 / 想回看历史版本
 
-报告门 FAIL 时 `run_daily` 会物理删除不合格 HTML（设计如此）。修完 problems 重跑即可；
-证据 JSON 不会删，是跨报告对账的依据。
+v2.6.0 起报告门 FAIL **不再删产物**，改为降级交付（首屏挂「数据不全」横幅 + DEGRADED 签名）。
+v2.10.3 起，中途更新/同一天重跑也**不再覆盖丢数据**：
+
+- 每次 `report` 运行前，自动把旧产物归档到 `data/daily-reports/archive/<日期>/<YYYYMMDD-HHMMSS>/`
+  （旧 HTML、旧对账 recon、本次 data、本次 session 证据），固定文件名永远指向最新；
+- `fetch` 重跑不清空 agent 补的新闻/产业链（写盘前回填 news/chain_notes，要强制重置加 `--reset-news`）；
+- 每次 report 追加一行 `data/daily-reports/run-log.csv`（日期/run_id/时段/覆盖率/门禁签名/产物路径）。
+
+回看历史就进 archive 目录按时间戳找；分析「哪版报告有问题」直接读 run-log.csv。
 
 ---
 
@@ -183,6 +190,7 @@ python scripts/release.py doctor
 
 - **代码**：git（`git log` 可回溯每一次改动）。
 - **数据**：`config/` + `data/`，建议每周复制到私密网盘/U 盘。
+- **报告历史**：`data/daily-reports/archive/`（每次运行的完整快照）+ `run-log.csv`（运行清单），永久留存、不自动清理。
 - **换电脑**：`git clone` → 拷贝 `config/`、`data/` → `python scripts/release.py doctor`。
 - **回滚代码**：`git checkout <tag>`；引擎版本在 `VERSION.json` 与 `git tag` 双重记录。
 

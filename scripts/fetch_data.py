@@ -917,6 +917,25 @@ def safe_name(ticker):
     return paths.safe_name(ticker)
 
 
+def _preserve_agent_content(path: Path, ev: dict) -> None:
+    """写盘前回填旧证据里 agent 补的 news/chain_notes，避免重跑 fetch 清空人工补证。
+
+    脚本每次从零重建证据，news/chain_notes 硬编码为空；agent 事后原地写回的新闻、
+    产业链笔记会在重跑 fetch 时被整体覆盖丢失（数据目录被 .gitignore 忽略，无法回滚）。
+    这里在覆盖前读旧文件，非空就回填。只保护 news/chain_notes，data_points 仍由脚本
+    刷新——实时行情不该被旧值锁死。
+    """
+    if not path.exists():
+        return
+    try:
+        old = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    for key in ("news", "chain_notes"):
+        if old.get(key):
+            ev[key] = old[key]
+
+
 def ensure_utf8_stdout():
     """Windows 控制台/计划任务默认 GBK，打印 ✗/✅ 会 UnicodeEncodeError 中断流程。
 
@@ -982,6 +1001,8 @@ def main():
     ap.add_argument("--report-root", help="证据输出根目录，默认 holdings 同级 daily-reports/")
     ap.add_argument("--tickers", default="", help="只处理部分标的，逗号分隔（快速诊断用）")
     ap.add_argument("--no-network", action="store_true", help="不调用 akshare，只生成取证骨架")
+    ap.add_argument("--reset-news", action="store_true",
+                    help="重跑时清空 news/chain_notes（默认回填旧文件里 agent 已补的新闻/产业链）")
     args = ap.parse_args()
 
     holdings_path = paths.resolve_holdings(args.holdings)
@@ -1043,6 +1064,8 @@ def main():
                               + "）——多为网络/代理问题（东财接口常被代理拦截），"
                                 "需用搜索/公开接口补证，或关闭代理后重跑")
         out = ev_dir / f"{args.date}_{args.session}_{safe_name(h['ticker'])}.json"
+        if not args.reset_news:
+            _preserve_agent_content(out, ev)
         out.write_text(json.dumps(ev, ensure_ascii=False, indent=2), encoding="utf-8")
         total = len(ev["data_points"])
         written.append(out)

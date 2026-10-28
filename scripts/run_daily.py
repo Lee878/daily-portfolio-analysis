@@ -105,6 +105,51 @@ def html_path_for(report_root: Path, date: str, session: str, override: str | No
     return report_root / f"{date}-{SESSION_CN[session]}-可视化.html"
 
 
+def _snapshot_run(report_root: Path, date: str, session: str, run_id: str,
+                  out_html: Path, recon_out: Path | None,
+                  data_path: Path | None) -> Path:
+    """每次 report 运行前，把将被覆盖的旧产物复制进 archive 快照，保证历史可回溯。
+
+    只复制本次 session 相关的 evidence 文件，不整目录拷（避免 archive 越来越臃肿）。
+    返回快照目录。旧 HTML / 旧 recon 在渲染前复制（渲染会覆盖固定名）；data 与
+    evidence 是本次运行的输入/依据，一并留档，将来可复现「某次报告基于什么证据」。
+    """
+    import shutil
+    snap_dir = report_root / "archive" / date / run_id
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    if out_html.exists():
+        shutil.copy2(out_html, snap_dir / out_html.name)
+    if recon_out and recon_out.exists():
+        shutil.copy2(recon_out, snap_dir / recon_out.name)
+    if data_path and data_path.exists():
+        shutil.copy2(data_path, snap_dir / data_path.name)
+    ev_dir = report_root / "evidence"
+    if ev_dir.exists():
+        snap_ev = snap_dir / "evidence"
+        snap_ev.mkdir(parents=True, exist_ok=True)
+        for p in ev_dir.glob(f"{date}_{session}_*.json"):
+            shutil.copy2(p, snap_ev / p.name)
+    return snap_dir
+
+
+def _append_run_log(report_root: Path, date: str, run_id: str, session: str,
+                    coverage: float, status: str, out_html: Path,
+                    recon_out: Path | None, data_path: Path | None,
+                    snap_dir: Path) -> None:
+    """追加一行运行日志（utf-8-sig 让 Excel 直接打开不乱码），给将来分析报告质量打底。"""
+    import csv
+    log = report_root / "run-log.csv"
+    new = not log.exists()
+    with open(log, "a", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        if new:
+            w.writerow(["date", "run_id", "session", "coverage", "gate_status",
+                        "html_path", "recon_path", "data_path", "snapshot_dir"])
+        w.writerow([date, run_id, session, f"{coverage*100:.1f}%", status,
+                    str(out_html), str(recon_out or ""),
+                    str(data_path or ""), str(snap_dir)])
+
+
 # ---------------------------------------------------------------------------
 # 推送：机械接线，不依赖 agent 记得调用（PRD FR-03/FR-05）
 #   告警走 notify.alert（timeSensitive，突破静默）；正常交付走 notify_report。
@@ -423,7 +468,9 @@ def _sync_coverage_banner(html: Path, combo: float):
 def do_report(args):
     report_root, holdings = resolve_paths(args)
     hs = load_targets(holdings, args.session)
-    out_html = html_path_for(report_root, args.date, args.session, args.html)
+    # v2.10.3：统一 resolve，杜绝 --html 相对路径在子进程 cwd 切换下静默错位（--builder 分支同病）
+    out_html = html_path_for(report_root, args.date, args.session, args.html).resolve()
+    run_id = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
 
     # ① 生成前强制证据门（不可绕过）
     print("=" * 64)
@@ -446,6 +493,7 @@ def do_report(args):
 
     # ② 生成 HTML：--data 走通用渲染器（数据驱动，免写 builder）；否则走旧 builder
     data_path = getattr(args, "data", None)
+    recon_out = None
     if data_path:
         data_path = Path(data_path)
         if not data_path.is_absolute():
@@ -455,7 +503,13 @@ def do_report(args):
             print(f"[run_daily][error] 数据文件不存在：{data_path}"
                   f"（相对路径按当前目录 {Path.cwd()} 解析，建议传绝对路径）")
             return EXIT_ENV
-        recon_out = report_root / f"recon-{args.date}-{args.session}.md"
+        # v2.10.2：子进程 cwd=SCRIPT_DIR，传相对路径会被解析到 scripts/ 下——
+        # 产物写进 scripts/ 而这里按当前目录校验 out_html.exists() 必然 False，
+        # 表现为"渲染器失败"但实际已生成。统一绝对化，杜绝这类静默错位。
+        recon_out = (report_root / f"recon-{args.date}-{args.session}.md").resolve()
+        # v2.10.3：渲染前归档旧产物到 archive 快照（旧HTML/旧recon/本次data/本次evidence）
+        snap_dir = _snapshot_run(report_root, args.date, args.session, run_id,
+                                 out_html, recon_out, data_path)
         print("=" * 64)
         print(f"[run_daily] 通用渲染器：{data_path.name}")
         print("=" * 64)
@@ -464,7 +518,7 @@ def do_report(args):
              "--data", str(data_path), "--out", str(out_html),
              "--date", args.date, "--session", args.session,
              "--recon-out", str(recon_out),
-             "--evidence-dir", str(report_root / "evidence")],
+             "--evidence-dir", str(report_root.resolve() / "evidence")],
             cwd=str(SCRIPT_DIR)).returncode
         if rc != 0 or not out_html.exists():
             print("[run_daily][error] 渲染器失败，未生成报告。")
@@ -479,6 +533,8 @@ def do_report(args):
         if not builder.exists():
             print(f"[run_daily][error] builder 不存在：{builder}")
             return EXIT_ENV
+        snap_dir = _snapshot_run(report_root, args.date, args.session, run_id,
+                                 out_html, None, None)
         print("=" * 64)
         print(f"[run_daily] 运行 builder：{builder.name}")
         print("=" * 64)
@@ -518,6 +574,8 @@ def do_report(args):
             print(f"  · {p}")
         print(f"[run_daily] 签名 = DEGRADED，退出码 {EXIT_RP_FAIL}（可被监控抓取）\n  {out_html}")
         print("=" * 64)
+        _append_run_log(report_root, args.date, run_id, args.session, coverage,
+                        "DEGRADED", out_html, recon_out, data_path, snap_dir)
         _notify(args, args.session, "DEGRADED", coverage=coverage,
                 reason="report_gate", problems=len(rp["problems"]))
         return EXIT_RP_FAIL
@@ -540,6 +598,8 @@ def do_report(args):
         print(f"[run_daily][降级交付] 报告门 PASS，证据门未过 → 签名 DEGRADED，"
               f"退出码 {EXIT_EV_FAIL}\n  {out_html}")
         print("=" * 64)
+        _append_run_log(report_root, args.date, run_id, args.session, coverage,
+                        "DEGRADED", out_html, recon_out, data_path, snap_dir)
         _notify(args, args.session, "DEGRADED", coverage=coverage,
                 reason="evidence_gate", problems=len(ev["problems"]))
         return EXIT_EV_FAIL
@@ -553,6 +613,8 @@ def do_report(args):
     print(f"[run_daily] 已写入门禁签名（引擎 v{_ver} 构建 {_build}），唯一允许交付的产物：\n  {out_html}")
     print("[run_daily] 存档 .md 与 evidence/*.json 不交付；present_files 只发该 HTML。")
     print("=" * 64)
+    _append_run_log(report_root, args.date, run_id, args.session, coverage,
+                    "PASS", out_html, recon_out, data_path, snap_dir)
     _notify(args, args.session, "PASS", coverage=coverage,
             summary=getattr(args, "notify_summary", "") or "")
     return EXIT_PASS

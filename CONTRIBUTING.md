@@ -10,7 +10,7 @@
 
 2. **每个 bug 配一条回归用例**
    修完 bug 在 `tests/test_regressions.py` 加一项，能复现原始缺陷。
-   `python -m unittest discover -s tests` 必须全绿（当前 67 项）。
+   `python -m unittest discover -s tests` 必须全绿（当前 197 项）。
 
 3. **改受管文件后重算指纹**
    受管文件 = `SKILL.md`、`README.md`、`LICENSE`、`pyproject.toml`、`CHANGELOG.md`、
